@@ -1,15 +1,14 @@
-
-import { useNavigate } from "react-router-dom"
-import img1 from "../assets/images/gallery/1.png"
-import img2 from "../assets/images/gallery/2.png"
-import img3 from "../assets/images/gallery/3.png"
-import img4 from "../assets/images/gallery/4.png"
-import img5 from "../assets/images/gallery/5.png"
-import img6 from "../assets/images/gallery/6.jpg"
-import img7 from "../assets/images/gallery/7.png"
+import { useNavigate } from "react-router-dom";
+import img1 from "../assets/images/gallery/1.png";
+import img2 from "../assets/images/gallery/2.png";
+import img3 from "../assets/images/gallery/3.png";
+import img4 from "../assets/images/gallery/4.png";
+import img5 from "../assets/images/gallery/5.png";
+import img6 from "../assets/images/gallery/6.jpg";
+import img7 from "../assets/images/gallery/7.png";
 
 const GalleryGrid = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const galleryItems = [
     {
       id: 1,
@@ -109,15 +108,14 @@ const GalleryGrid = () => {
       title: "Alien Landscape",
       height: "h-60",
     },
-  ]
+  ];
 
-
-   const handleImageClick = (imageId) => {
-    navigate(`/gallery/${imageId}`)
-  }
+  const handleImageClick = (imageId) => {
+    navigate(`/gallery/${imageId}`);
+  };
 
   return (
- <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
+    <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4">
       {galleryItems.map((item) => (
         <div
           key={item.id}
@@ -135,9 +133,13 @@ const GalleryGrid = () => {
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center">
-                  <span className="text-xs text-white font-semibold">{item.artist.charAt(0)}</span>
+                  <span className="text-xs text-white font-semibold">
+                    {item.artist.charAt(0)}
+                  </span>
                 </div>
-                <span className="text-white text-sm font-medium">{item.artist}</span>
+                <span className="text-white text-sm font-medium">
+                  {item.artist}
+                </span>
               </div>
             </div>
 
@@ -147,7 +149,7 @@ const GalleryGrid = () => {
         </div>
       ))}
     </div>
-  )
-}
+  );
+};
 
-export default GalleryGrid
+export default GalleryGrid;

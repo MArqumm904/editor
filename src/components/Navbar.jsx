@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 
 const Navbar = () => {
   const links = [
-    { name: "Create", path: "/" }, // Create can stay home or special page
+    { name: "Create", path: "/" }, 
     { name: "Gallery", path: "/gallery" },
     { name: "Donate", path: "/donate" },
     { name: "Contact", path: "/contact" },
@@ -66,7 +66,7 @@ const Navbar = () => {
             />
           </svg>
           <button
-            className="relative z-10 px-10 py-2.5 text-[16px] font-medium text-white transition-all duration-300 hover:bg-[#8088E2]  hover:-translate-y-0.5 hover:shadow-lg"
+            className="relative z-10 px-10 ms-2 py-2.5 text-[16px] font-medium text-white transition-all duration-300 hover:bg-[#8088E2]  hover:-translate-y-0.5 hover:shadow-lg"
             style={{ background: "transparent" }}
           >
             Donate

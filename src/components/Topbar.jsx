@@ -5,7 +5,7 @@ const Topbar = () => {
 
   return (
     <nav className="bg-darkbg border-gray-800 px-6 py-4 mt-8">
-      <div className="flex items-center justify-between max-w-7xl mx-auto">
+      <div className="flex items-center justify-between max-w-[77rem] mx-auto">
         {/* Filter Tags */} 
         <div className="flex items-center gap-3">
           {filterTags.map((tag, index) => (
