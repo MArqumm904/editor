@@ -5,9 +5,11 @@ import leave1 from "../assets/images/leave1.png";
 import leave2 from "../assets/images/leave2.png";
 import leave3 from "../assets/images/leave3.png";
 import leave4 from "../assets/images/leave4.png";
+import { useNavigate } from "react-router-dom";
 
 const HERO = () => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const navigate = useNavigate();
 
   const handlePlayClick = () => {
     setIsPlaying(!isPlaying);
@@ -46,7 +48,9 @@ const HERO = () => {
 
         {/* Action buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <button className="px-12 py-5 bg-[#8088E2] text-white font-semibold rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+          <button className="px-12 py-5 bg-[#8088E2] text-white font-semibold rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          onClick={() => navigate('/create')}
+          >
             Create Now
           </button>
           <button className="px-12 py-5 bg-transparent border-2 border-gray-600 text-white font-semibold rounded-md hover:border-[#8088E2] hover:text-[#8088E2] transition-all duration-300">
