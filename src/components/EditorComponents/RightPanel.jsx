@@ -1,4 +1,3 @@
-// src/components/EditorComponents/RightPanel.jsx
 import React, { useState } from "react";
 import {
   ChevronRight,
@@ -6,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
 } from "lucide-react";
-import PlayImage from "../../assets/images/play.png";
 
 const RightPanel = () => {
   const [isAnimationOpen, setIsAnimationOpen] = useState(false);
@@ -14,11 +12,45 @@ const RightPanel = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(0);
 
-  const toggleAnimation = () => setIsAnimationOpen(!isAnimationOpen);
-  const toggleCategories = () => setIsCategoriesOpen(!isCategoriesOpen);
-  const toggleExport = () => setIsExportOpen(!isExportOpen);
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState("original");
+  const [selectedResolution, setSelectedResolution] = useState("high");
+  const [selectedFormat, setSelectedFormat] = useState("video");
+  const [duration, setDuration] = useState("10 Seconds");
+  const [includeInGallery, setIncludeInGallery] = useState(false);
 
-  // Animation overlay data
+  const toggleAnimation = () => {
+    if (isAnimationOpen) {
+      setIsAnimationOpen(false);
+    } else {
+      setIsAnimationOpen(false);
+      setIsCategoriesOpen(false);
+      setIsExportOpen(false);
+      setIsAnimationOpen(true);
+    }
+  };
+
+  const toggleCategories = () => {
+    if (isCategoriesOpen) {
+      setIsCategoriesOpen(false);
+    } else {
+      setIsAnimationOpen(false);
+      setIsCategoriesOpen(false);
+      setIsExportOpen(false);
+      setIsCategoriesOpen(true);
+    }
+  };
+
+  const toggleExport = () => {
+    if (isExportOpen) {
+      setIsExportOpen(false);
+    } else {
+      setIsAnimationOpen(false);
+      setIsCategoriesOpen(false);
+      setIsExportOpen(false);
+      setIsExportOpen(true);
+    }
+  };
+
   const animationItems = [
     {
       icon: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -37,7 +69,6 @@ const RightPanel = () => {
     },
   ];
 
-  // Categories data with icons and items
   const categoryData = [
     {
       name: "Fire",
@@ -113,10 +144,6 @@ const RightPanel = () => {
     },
   ];
 
-  // Export data
-  const exportItems = ["PNG", "JPG", "SVG"];
-
-  // Render animation grid items
   const renderAnimationGrid = () => {
     return (
       <div className="grid grid-cols-3 gap-2 pt-2 mb-5">
@@ -140,7 +167,6 @@ const RightPanel = () => {
     );
   };
 
-  // Render category tabs
   const renderCategoryTabs = () => {
     return (
       <div className="flex items-center space-x-2 pt-2 mb-4">
@@ -151,7 +177,7 @@ const RightPanel = () => {
               "category-tabs-container"
             );
             if (tabsContainer) {
-              tabsContainer.scrollLeft -= 120; // Scroll left by 120px
+              tabsContainer.scrollLeft -= 120;
             }
           }}
         >
@@ -190,7 +216,7 @@ const RightPanel = () => {
               "category-tabs-container"
             );
             if (tabsContainer) {
-              tabsContainer.scrollLeft += 120; // Scroll right by 120px
+              tabsContainer.scrollLeft += 120;
             }
           }}
         >
@@ -200,7 +226,6 @@ const RightPanel = () => {
     );
   };
 
-  // Render category items grid
   const renderCategoryItems = () => {
     const currentCategory = categoryData[selectedCategory];
     return (
@@ -222,18 +247,145 @@ const RightPanel = () => {
     );
   };
 
-  // Render list items
-  const renderListItems = (items) => {
+  const renderExportSection = () => {
+    const aspectRatios = [
+      { id: "original", label: "Original", width: "w-full", height: "h-24" },
+      { id: "1:1", label: "1:1", width: "w-32", height: "h-24" },
+      { id: "9:16", label: "9:16", width: "w-20", height: "h-24" },
+      { id: "4:5", label: "4:5", width: "w-24", height: "h-24" },
+      { id: "16:9", label: "16:9", width: "w-48", height: "h-24" },
+    ];
+
+    const resolutions = ["Low", "Medium", "High"];
+    const formats = ["Image", "GIF", "Video"];
+    const durationOptions = [
+      "5 Seconds",
+      "10 Seconds",
+      "15 Seconds",
+      "30 Seconds",
+    ];
+
+    const currentRatio = aspectRatios.find(
+      (ratio) => ratio.id === selectedAspectRatio
+    );
+
     return (
-      <div className="space-y-2 pt-2">
-        {items.map((item, index) => (
+      <div className="space-y-3 mb-3">
+        {/* Preview Area - Changes size based on selected aspect ratio */}
+        <div className="flex justify-center">
           <div
-            key={index}
-            className="bg-[#2a2635] p-2 rounded-lg cursor-pointer hover:bg-[#3a3645] transition-all duration-200 ease-in-out transform hover:scale-105"
-          >
-            <span className="text-[#fff] text-[0.750rem]">{item}</span>
+            className={`${currentRatio.width} ${currentRatio.height} bg-gray-300 transition-all duration-300 ease-in-out`}
+          ></div>
+        </div>
+
+        {/* Aspect Ratio Selection */}
+        <div className="space-y-2">
+          <h4 className="text-white text-sm font-medium">Aspect Ratio</h4>
+          <div className="flex space-x-4">
+            {aspectRatios.map((ratio) => (
+              <div
+                key={ratio.id}
+                className="flex flex-col items-center space-y-1"
+              >
+                <button
+                  onClick={() => setSelectedAspectRatio(ratio.id)}
+                  className={`transition-all duration-200 ${
+                    selectedAspectRatio === ratio.id
+                      ? "border-2 border-dashed border-gray-400 bg-gray-300"
+                      : "border-2 border-white bg-[#1b1b23]"
+                  } ${
+                    ratio.id === "1:1"
+                      ? "w-8 h-7"
+                      : ratio.id === "9:16"
+                      ? "w-5 h-7 "
+                      : ratio.id === "4:5"
+                      ? "w-6 h-7 "
+                      : ratio.id === "16:9"
+                      ? "w-7 h-5 "
+                      : "w-7 h-7 " // Original
+                  }`}
+                ></button>
+                <span className="text-white text-xs">{ratio.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Resolution Settings */}
+        <div className="space-y-2">
+          <h4 className="text-white text-sm font-medium">Resolution</h4>
+          <div className="flex space-x-1 bg-[#1b1b23] rounded-lg p-1">
+            {resolutions.map((resolution) => (
+              <button
+                key={resolution}
+                onClick={() => setSelectedResolution(resolution.toLowerCase())}
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-200 ${
+                  selectedResolution === resolution.toLowerCase()
+                    ? "bg-gray-400 text-white"
+                    : "bg-transparent text-white hover:bg-[#2a2635]"
+                }`}
+              >
+                {resolution}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Format Settings */}
+        <div className="space-y-2">
+          <h4 className="text-white text-sm font-medium">Format</h4>
+          <div className="flex space-x-1 bg-[#1b1b23] rounded-lg p-1">
+            {formats.map((format) => (
+              <button
+                key={format}
+                onClick={() => setSelectedFormat(format.toLowerCase())}
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-200 ${
+                  selectedFormat === format.toLowerCase()
+                    ? "bg-gray-400 text-white"
+                    : "bg-transparent text-white hover:bg-[#2a2635]"
+                }`}
+              >
+                {format}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Duration Setting */}
+        <div className="space-y-2">
+          <h4 className="text-white text-sm font-medium">Duration</h4>
+          <select
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            className="w-full bg-[#2a2635] text-white text-sm rounded-lg px-3 py-1.5 border-none focus:outline-none focus:ring-2 focus:ring-[#8088e2]"
+          >
+            {durationOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Gallery Checkbox */}
+        <div className="flex items-center space-x-3">
+          <input
+            type="checkbox"
+            id="gallery-checkbox"
+            checked={includeInGallery}
+            onChange={(e) => setIncludeInGallery(e.target.checked)}
+            className="w-6 h-6 accent-[#8088e2] bg-[#2a2635] border-gray-600 rounded-md"
+            style={{ accentColor: "#8088e2" }}
+          />
+          <label htmlFor="gallery-checkbox" className="text-white text-sm">
+            Include your image to the public gallery.
+          </label>
+        </div>
+
+        {/* Export Button */}
+        <button className="w-full bg-[#8088e2] text-white py-2.5 px-4 rounded-xl font-medium hover:bg-[#6b73d1] transition-all duration-200 ">
+          Export
+        </button>
       </div>
     );
   };
@@ -250,7 +402,6 @@ const RightPanel = () => {
         }
       `}</style>
       <div className="space-y-3">
-        {/* Animation Overlay Section */}
         <div className="bg-[#13131b] rounded-2xl overflow-hidden">
           <button
             className="w-full p-3 flex items-center justify-between cursor-pointer  transition-all duration-200 ease-in-out"
@@ -276,7 +427,6 @@ const RightPanel = () => {
           </div>
         </div>
 
-        {/* Categories Section */}
         <div className="bg-[#13131b] rounded-2xl overflow-hidden">
           <button
             className="w-full p-3 flex items-center justify-between cursor-pointer  transition-all duration-200 ease-in-out "
@@ -305,7 +455,6 @@ const RightPanel = () => {
           </div>
         </div>
 
-        {/* Export Section */}
         <div className="bg-[#13131b] rounded-2xl overflow-hidden">
           <button
             className="w-full p-3 flex items-center justify-between cursor-pointer  transition-all duration-200 ease-in-out"
@@ -324,10 +473,10 @@ const RightPanel = () => {
 
           <div
             className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${
-              isExportOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+              isExportOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
             }`}
           >
-            {renderListItems(exportItems)}
+            {renderExportSection()}
           </div>
         </div>
       </div>
