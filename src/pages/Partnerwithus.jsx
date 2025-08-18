@@ -1,18 +1,17 @@
-import React from "react";
 import Navbar from "../components/Navbar";
-import DONATEHEO from "../components/donate_hero";
+import PARTNEREHEO from "../components/PartnerHero";
 import Donors from "../components/Donors";
 import Footer from "../components/Footer";
 
-const Donate = () => {
+const Partner = () => {
   return (
     <div className="">
       <Navbar />
-      <DONATEHEO />
+      <PARTNEREHEO />
       <Donors />
       <Footer />
     </div>
   );
 };
 
-export default Donate;
+export default Partner;

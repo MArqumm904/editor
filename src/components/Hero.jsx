@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Play, Pause } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import img from "../assets/images/1.png";
 import leave1 from "../assets/images/leave1.png";
 import leave2 from "../assets/images/leave2.png";
@@ -15,54 +16,185 @@ const HERO = () => {
     setIsPlaying(!isPlaying);
   };
 
-  return (
-    <div className="min-h-screen bg-darkbg relative overflow-hidden flex items-center justify-center">
-      {/* Animated floating elements - decorative shapes */}
-      <div className="absolute top-20 left-20 w-24 h-24 opacity-60">
-        <img
-          src={leave1}
-          alt="decorative"
-          className="w-full h-full object-contain"
-        />
-      </div>
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.3,
+      },
+    },
+  };
 
-      <div className="absolute top-32 right-32 w-20 h-20 opacity-70">
+  const itemVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: 30,
+      scale: 0.95
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.8,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const floatingVariants = {
+    animate: {
+      y: [-10, 10, -10],
+      rotate: [0, 5, 0],
+      transition: {
+        duration: 6,
+        repeat: Infinity,
+        ease: "easeInOut",
+      },
+    },
+  };
+
+  const buttonVariants = {
+    hover: {
+      scale: 1.05,
+      transition: {
+        duration: 0.2,
+        ease: "easeInOut",
+      },
+    },
+    tap: {
+      scale: 0.95,
+    },
+  };
+
+  const playButtonVariants = {
+    hover: {
+      scale: 1.1,
+      rotate: [0, -10, 10, 0],
+      transition: {
+        duration: 0.3,
+        ease: "easeInOut",
+      },
+    },
+    tap: {
+      scale: 0.9,
+    },
+  };
+
+  const imageVariants = {
+    hidden: { 
+      opacity: 0, 
+      scale: 1.1,
+      filter: "blur(10px)"
+    },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: {
+        duration: 1.2,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  return (
+    <motion.div 
+      className="min-h-screen bg-darkbg relative overflow-hidden flex items-center justify-center"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {/* Animated floating elements - decorative shapes */}
+      <motion.div 
+        className="absolute z-0 pointer-events-none top-8 left-5 w-14 h-14 opacity-70 md:top-8 md:left-[200px] md:w-20 md:h-24"
+        variants={floatingVariants}
+        animate="animate"
+        style={{ animationDelay: "0s" }}
+      >
         <img
           src={leave1}
           alt="decorative"
           className="w-full h-full object-contain"
         />
-      </div>
+      </motion.div>
+
+      <motion.div 
+        className="absolute z-0 pointer-events-none top-10 right-5 w-10 h-10 opacity-70 md:top-10 md:right-[215px] md:w-16 md:h-12"
+        variants={floatingVariants}
+        animate="animate"
+        style={{ animationDelay: "1s" }}
+      >
+        <img
+          src={leave2}
+          alt="decorative"
+          className="w-full h-full object-contain"
+        />
+      </motion.div>
 
       {/* Main content container */}
-      <div className="text-center z-10 px-4 max-w-6xl mx-auto">
+      <motion.div 
+        className="text-center -mt-12 sm:mt-10 md:mt-12 z-10 px-4 sm:px-6 md:px-8 max-w-6xl mx-auto flex flex-col items-center justify-center min-h-screen"
+        variants={itemVariants}
+      >
         {/* Heading */}
-        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+        <motion.h1 
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-6xl font-bold text-white mb-6 sm:mb-8 leading-tight px-2"
+          variants={itemVariants}
+        >
           Bring Your Photos To Life
-        </h1>
+        </motion.h1>
 
         {/* Subtext */}
-        <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-2xl mx-auto">
+        <motion.p 
+          className="text-lg sm:text-xl md:text-2xl text-gray-300 mb-6 sm:mb-8 max-w-xs sm:max-w-2xl md:max-w-3xl mx-auto px-2"
+          variants={itemVariants}
+        >
           Animate your images with magical motion in just seconds.
-        </p>
+        </motion.p>
 
         {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <button className="px-12 py-5 bg-[#8088E2] text-white font-semibold rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
-          onClick={() => navigate('/create')}
+        <motion.div 
+          className="flex flex-row gap-4 sm:gap-6 justify-center items-center mb-12 sm:mb-16 md:mb-20 px-4"
+          variants={itemVariants}
+        >
+          <motion.button
+            className="px-6 sm:px-8 md:px-10 py-3 sm:py-4 bg-[#8088E2] text-white font-semibold text-base sm:text-lg rounded-2xl hover:bg-[#6B73D1] transition-all duration-300 shadow-lg hover:shadow-xl"
+            onClick={() => navigate("/create")}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
           >
             Create Now
-          </button>
-          <button className="px-12 py-5 bg-transparent border-2 border-gray-600 text-white font-semibold rounded-md hover:border-[#8088E2] hover:text-[#8088E2] transition-all duration-300">
+          </motion.button>
+          <motion.button 
+            className="px-6 sm:px-8 md:px-10 py-3 sm:py-4 bg-transparent border-2 border-white text-white font-semibold text-base sm:text-lg rounded-2xl hover:border-[#8088E2] hover:text-[#8088E2] transition-all duration-300" 
+            onClick={() => navigate("/gallery")}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+          >
             Explore Gallery
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
 
         {/* Video showcase container */}
-        <div className="relative w-[90vw] max-w-[1200px] mx-auto pt-12">
+        <motion.div 
+          className="relative w-[95vw] sm:w-[90vw] max-w-[900px] mx-auto pt-2 sm:pt-3 md:pt-5 px-2"
+          variants={itemVariants}
+        >
           {/* Rounded container with gradient border */}
-          <div className="relative p-1 bg-[#8088E2] rounded-3xl shadow-2xl">
-            <div className="bg-black rounded-3xl overflow-hidden relative">
+          <motion.div 
+            className="relative p-1.5 sm:p-2 bg-gradient-to-b from-[#8087e1] via-[#8087e1] to-[#0d0b13] rounded-[20px] sm:rounded-[24px] md:rounded-[28px] shadow-2xl"
+            whileHover={{
+              scale: 1.02,
+              transition: { duration: 0.3 }
+            }}
+          >
+            <div className="bg-black rounded-[18px] sm:rounded-[22px] md:rounded-[26px] overflow-hidden relative">
               {/* Video/Image container */}
               <div
                 className="relative"
@@ -72,29 +204,56 @@ const HERO = () => {
                 }}
               >
                 {/* Image */}
-                <img
+                <motion.img
                   src={img}
                   alt="Animated landscape preview"
-                  className="absolute top-0 left-0 w-full h-full object-cover rounded-3xl"
+                  className="absolute top-0 left-0 w-full h-full object-cover rounded-[16px] sm:rounded-[20px] md:rounded-[24px]"
+                  variants={imageVariants}
                 />
 
                 {/* Play button overlay */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <button
+                <motion.div 
+                  className="absolute inset-0 flex items-center justify-center"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 1.5, duration: 0.5 }}
+                >
+                  <motion.button
                     onClick={handlePlayClick}
-                    className="w-24 h-24 bg-[#8088E2] rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform duration-300 hover:bg-[#8088E2]"
+                    className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-[#8088E2] rounded-full flex items-center justify-center shadow-2xl hover:bg-[#8088E2]"
+                    variants={playButtonVariants}
+                    whileHover="hover"
+                    whileTap="tap"
                   >
-                    {isPlaying ? (
-                      <Pause className="w-10 h-10 text-white ml-1" />
-                    ) : (
-                      <Play className="w-10 h-10 text-white ml-1" />
-                    )}
-                  </button>
-                </div>
+                    <AnimatePresence mode="wait">
+                      {isPlaying ? (
+                        <motion.div
+                          key="pause"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <Pause className="w-6 h-6 sm:w-8 sm:w-8 md:w-10 md:h-10 text-white ml-0.5 sm:ml-1" />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="play"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <Play className="w-6 h-6 sm:w-8 sm:w-8 md:w-10 md:h-10 text-white ml-0.5 sm:ml-1" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
+                </motion.div>
 
                 {/* Video element (hidden initially) */}
                 <video
-                  className="absolute top-0 left-0 w-full h-full object-cover rounded-3xl hidden"
+                  className="absolute top-0 left-0 w-full h-full object-cover rounded-[16px] sm:rounded-[20px] md:rounded-[24px] hidden"
                   src=""
                   controls={false}
                   muted
@@ -102,27 +261,37 @@ const HERO = () => {
                 />
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
 
       {/* Additional floating decorative elements */}
-      <div className="absolute top-1/4 left-1/4 w-24 h-24 opacity-30">
+      <motion.div 
+        className="absolute z-0 pointer-events-none top-[200px] left-16 w-9 h-9 opacity-60 md:top-[250px] md:left-[310px] md:w-10 md:h-10"
+        variants={floatingVariants}
+        animate="animate"
+        style={{ animationDelay: "2s" }}
+      >
         <img
           src={leave3}
           alt="decorative"
           className="w-full h-full object-contain"
         />
-      </div>
+      </motion.div>
 
-      <div className="relative -top-44 right-[420px] w-24 h-24 opacity-40">
+      <motion.div 
+        className="absolute top-[200px] right-12 w-10 h-10 opacity-60 pointer-events-none z-0 md:top-[250px] md:right-[295px] md:w-16 md:h-16"
+        variants={floatingVariants}
+        animate="animate"
+        style={{ animationDelay: "3s" }}
+      >
         <img
           src={leave4}
           alt="decorative"
           className="w-full h-full object-contain"
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

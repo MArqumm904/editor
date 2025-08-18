@@ -1,56 +1,451 @@
-import React from 'react';
-import ppf from "../assets/images/image.png"
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence, useInView } from "framer-motion";
+import ppf from "../assets/images/image.png";
+import DollarImage from "../assets/images/dollar.png";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const Donors = () => {
   const donors = [
     { id: 1, name: "John Doe", amount: "$100" },
     { id: 2, name: "John Doe", amount: "$100" },
     { id: 3, name: "John Doe", amount: "$100" },
-    { id: 4, name: "John Doe", amount: "$100" }
+    { id: 4, name: "John Doe", amount: "$100" },
+    { id: 5, name: "John Doe", amount: "$100" },
+    { id: 6, name: "John Doe", amount: "$100" },
+    { id: 7, name: "John Doe", amount: "$100" },
+    { id: 8, name: "John Doe", amount: "$100" },
+    { id: 9, name: "John Doe", amount: "$100" },
+    { id: 10, name: "John Doe", amount: "$100" },
+    { id: 11, name: "John Doe", amount: "$100" },
+    { id: 12, name: "John Doe", amount: "$100" },
+    { id: 13, name: "John Doe", amount: "$100" },
+    { id: 14, name: "John Doe", amount: "$100" },
+    { id: 15, name: "John Doe", amount: "$100" },
+    { id: 16, name: "John Doe", amount: "$100" },
   ];
 
+  const [itemsPerPage, setItemsPerPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const containerRef = useRef(null);
+  const titleRef = useRef(null);
+  const carouselRef = useRef(null);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragDeltaX, setDragDeltaX] = useState(0);
+
+  // Scroll animations
+  const isTitleInView = useInView(titleRef, { once: true, margin: "-100px" });
+  const isCarouselInView = useInView(carouselRef, { once: true, margin: "-50px" });
+
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const titleVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: -50,
+      scale: 0.9,
+      filter: "blur(10px)"
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: {
+        duration: 1,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const carouselVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: 100,
+      scale: 0.95
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.8,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: 80,
+      scale: 0.8,
+      filter: "blur(8px)"
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: {
+        duration: 0.7,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const cardHoverVariants = {
+    hover: {
+      scale: 0.95,
+      y: -15,
+      transition: {
+        duration: 0.3,
+        ease: "easeInOut",
+      },
+    },
+    tap: {
+      scale: 0.9,
+      transition: {
+        duration: 0.1,
+      },
+    },
+  };
+
+  const buttonVariants = {
+    hover: {
+      scale: 1.15,
+      backgroundColor: "rgba(255, 255, 255, 0.25)",
+      transition: {
+        duration: 0.2,
+        ease: "easeInOut",
+      },
+    },
+    tap: {
+      scale: 0.9,
+    },
+  };
+
+  const dotVariants = {
+    hover: {
+      scale: 1.4,
+      backgroundColor: "#8088e2",
+      transition: {
+        duration: 0.2,
+      },
+    },
+    active: {
+      scale: 1.3,
+      backgroundColor: "#8088e2",
+    },
+  };
+
+  const pageTransitionVariants = {
+    enter: {
+      opacity: 0,
+      x: 100,
+      scale: 0.95,
+    },
+    center: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+    exit: {
+      opacity: 0,
+      x: -100,
+      scale: 0.95,
+      transition: {
+        duration: 0.3,
+      },
+    },
+  };
+
+  const computeItemsPerPage = () => {
+    if (typeof window === "undefined") return 1;
+    if (window.matchMedia("(min-width: 1024px)").matches) return 4;
+    if (window.matchMedia("(min-width: 768px)").matches) return 2;
+    return 1;
+  };
+
+  useEffect(() => {
+    const update = () => {
+      setItemsPerPage(computeItemsPerPage());
+      const width = containerRef.current ? containerRef.current.clientWidth : 0;
+      setContainerWidth(width);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const pages = useMemo(() => {
+    const result = [];
+    for (let i = 0; i < donors.length; i += itemsPerPage) {
+      result.push(donors.slice(i, i + itemsPerPage));
+    }
+    return result;
+  }, [donors, itemsPerPage]);
+
+  useEffect(() => {
+    if (currentPage > pages.length - 1) {
+      setCurrentPage(Math.max(0, pages.length - 1));
+    }
+  }, [pages.length, currentPage]);
+
+  const goPrev = () => setCurrentPage((p) => Math.max(0, p - 1));
+  const goNext = () => setCurrentPage((p) => Math.min(pages.length - 1, p + 1));
+
+  const onPointerDown = (e) => {
+    setIsDragging(true);
+    setDragStartX(e.clientX);
+    setDragDeltaX(0);
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {}
+  };
+
+  const onPointerMove = (e) => {
+    if (!isDragging) return;
+    const rawDelta = e.clientX - dragStartX;
+    const atFirst = currentPage === 0;
+    const atLast = currentPage === pages.length - 1;
+    let nextDelta = rawDelta;
+    if (atFirst && rawDelta > 0) nextDelta = rawDelta * 0.3;
+    if (atLast && rawDelta < 0) nextDelta = rawDelta * 0.3;
+    setDragDeltaX(nextDelta);
+  };
+
+  const endDrag = () => {
+    if (!isDragging) return;
+    const threshold = Math.max(60, containerWidth * 0.2);
+    if (dragDeltaX <= -threshold && currentPage < pages.length - 1) {
+      goNext();
+    } else if (dragDeltaX >= threshold && currentPage > 0) {
+      goPrev();
+    }
+    setIsDragging(false);
+    setDragDeltaX(0);
+  };
+
+  const dragPercent =
+    containerWidth > 0 ? (dragDeltaX / containerWidth) * 100 : 0;
+
   return (
-    <div className="bg-darkbg flex items-center justify-center p-8 pt-24">
+    <motion.div 
+      className="bg-darkbg flex items-center justify-center p-4 md:p-8 pt-12 md:pt-24"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
       <div className="max-w-6xl w-full">
         {/* Title */}
-        <h1 className="text-white text-4xl font-bold text-center mb-16">
+        <motion.h1 
+          ref={titleRef}
+          className="text-white text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 md:mb-16"
+          variants={titleVariants}
+          initial="hidden"
+          animate={isTitleInView ? "visible" : "hidden"}
+        >
           Our Amazing Donors
-        </h1>
-        
-        {/* Donors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {donors.map((donor) => (
-            <div
-              key={donor.id}
-              className="bg-gradient-to-br from-[#8088E2] to-[#0D0B13] rounded-2xl p-8 flex flex-col items-center text-center shadow-lg hover:scale-105 transition-transform duration-300"
+        </motion.h1>
+
+        {/* Carousel */}
+        <motion.div 
+          ref={carouselRef}
+          className="relative"
+          variants={carouselVariants}
+          initial="hidden"
+          animate={isCarouselInView ? "visible" : "hidden"}
+        >
+          {/* Track */}
+          <div
+            ref={containerRef}
+            className="overflow-hidden select-none"
+            style={{ touchAction: "pan-y" }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerLeave={endDrag}
+            onPointerCancel={endDrag}
+          >
+            <motion.div
+              className="flex"
+              style={{
+                transform: `translateX(calc(-${
+                  currentPage * 100
+                }% + ${dragPercent}%))`,
+                transitionProperty: "transform",
+                transitionDuration: isDragging ? "0ms" : "500ms",
+              }}
+              animate={{
+                x: `calc(-${currentPage * 100}% + ${dragPercent}%)`,
+              }}
+              transition={{
+                duration: isDragging ? 0 : 0.6,
+                ease: [0.25, 0.46, 0.45, 0.94],
+              }}
             >
-              <div className="w-40 h-40  rounded-full mb-6 flex items-center justify-center">
-                    <img src={ppf} alt="" className='w-46 h-46 bg-gray-300 rounded-full'/>
-              </div>
-              
-              {/* Name */}
-              <h3 className="text-white text-xl font-semibold mb-3">
-                {donor.name}
-              </h3>
-              
-              {/* Amount with dot indicator */}
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                <span className="text-white text-lg font-medium">
-                  {donor.amount}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-        
+              {pages.map((group, pageIndex) => (
+                <div key={pageIndex} className="w-full shrink-0 px-1">
+                  <motion.div 
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 mb-8 md:mb-12"
+                    variants={pageTransitionVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    key={`page-${currentPage}`}
+                  >
+                    {group.map((donor, index) => (
+                      <motion.div
+                        key={donor.id}
+                        className="relative z-0 bg-gradient-to-b from-[#8088E2] to-[#0D0B13] rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col items-center text-center shadow-lg border-2 border-[#8088e2] overflow-hidden cursor-grab active:cursor-grabbing"
+                        variants={cardVariants}
+                        custom={index}
+                        whileHover="hover"
+                        whileTap="tap"
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.1}
+                        initial="hidden"
+                        animate={isCarouselInView ? "visible" : "hidden"}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <div className="relative z-10 flex flex-col items-center">
+                          <motion.div 
+                            className="w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 flex items-center justify-center"
+                            whileHover={{
+                              scale: 1.08,
+                              rotate: [0, -5, 5, 0],
+                              transition: { duration: 0.3 }
+                            }}
+                          >
+                            <img
+                              src={ppf}
+                              alt=""
+                              className="w-full h-full object-cover bg-gray-300 rounded-full"
+                              draggable={false}
+                            />
+                          </motion.div>
+
+                          {/* Name */}
+                          <motion.h3 
+                            className="text-white text-xl sm:text-2xl font-semibold mb-3"
+                            whileHover={{
+                              color: "#8088E2",
+                              scale: 1.05,
+                              transition: { duration: 0.2 }
+                            }}
+                          >
+                            {donor.name}
+                          </motion.h3>
+
+                          {/* Amount with dollar image */}
+                          <motion.div 
+                            className="flex items-center space-x-2"
+                            whileHover={{
+                              scale: 1.15,
+                              transition: { duration: 0.2 }
+                            }}
+                          >
+                            <motion.img
+                              src={DollarImage}
+                              alt="dollar"
+                              className="w-7 h-7"
+                              draggable={false}
+                              whileHover={{
+                                rotate: [0, 15, -15, 0],
+                                transition: { duration: 0.4 }
+                              }}
+                            />
+                            <span className="text-white text-lg sm:text-xl font-medium">
+                              {donor.amount}
+                            </span>
+                          </motion.div>
+                        </div>
+
+                        {/* Bottom black gradient overlay (subtle) */}
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/35 to-transparent"></div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Controls */}
+          <motion.button
+            onClick={goPrev}
+            disabled={currentPage === 0}
+            className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white px-2 py-2 rounded-full backdrop-blur disabled:opacity-40"
+            aria-label="Previous"
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+            whileDisabled={{ opacity: 0.4 }}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+          >
+            <ArrowLeft size={18} />
+          </motion.button>
+          <motion.button
+            onClick={goNext}
+            disabled={currentPage === pages.length - 1}
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white px-2 py-2 rounded-full backdrop-blur disabled:opacity-40"
+            aria-label="Next"
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+            whileDisabled={{ opacity: 0.4 }}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.5, duration: 0.3 }}
+          >
+            <ArrowRight size={18} />
+          </motion.button>
+        </motion.div>
+
         {/* Pagination Dots */}
-        <div className="flex justify-center space-x-2">
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-          <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-        </div>
+        <motion.div 
+          className="flex justify-center space-x-2 mt-3 md:mt-2 mb-12"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.4 }}
+        >
+          {pages.map((_, i) => (
+            <motion.button
+              key={i}
+              aria-label={`Go to slide ${i + 1}`}
+              onClick={() => setCurrentPage(i)}
+              className={`w-2 h-2 rounded-full ${
+                i === currentPage ? "bg-[#8088e2]" : "bg-gray-600"
+              }`}
+              variants={dotVariants}
+              whileHover="hover"
+              animate={i === currentPage ? "active" : ""}
+              whileTap={{ scale: 0.8 }}
+            />
+          ))}
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

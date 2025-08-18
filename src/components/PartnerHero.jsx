@@ -1,25 +1,20 @@
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
-import { User } from "lucide-react";
+import { Plus } from "lucide-react";
 import leave1 from "../assets/images/leave1.png";
 import leave2 from "../assets/images/leave2.png";
 import leave3 from "../assets/images/leave3.png";
 import leave4 from "../assets/images/leave4.png";
-import DollarImage from "../assets/images/dollar.png";
 
-import WaveImage from "../assets/images/wave.png"; 
-import SmileImage from "../assets/images/smile.png";
-import HappyImage from "../assets/images/happy.png"; 
-import LoveImage from "../assets/images/love.png"; 
-import HeartImage from "../assets/images/heart.png"; 
-
-const Donatehero = () => {
-  const [selectedAmount, setSelectedAmount] = useState(null);
-  const [customAmount, setCustomAmount] = useState("");
-  const [link, setLink] = useState("");
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null);
+const PartnerHero = () => {
   const fileInputRef = useRef(null);
+  const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [desiredFee, setDesiredFee] = useState("");
+  const [paypalLink, setPaypalLink] = useState("");
+  const [email, setEmail] = useState("");
+  const [ownsRights, setOwnsRights] = useState(false);
+
   const titleRef = useRef(null);
   const formRef = useRef(null);
 
@@ -87,30 +82,34 @@ const Donatehero = () => {
     },
   };
 
-  const buttonVariants = {
+  const uploadButtonVariants = {
     hover: {
-      scale: 1.05,
-      transition: {
-        duration: 0.2,
-        ease: "easeInOut",
-      },
-    },
-    tap: {
-      scale: 0.95,
-    },
-  };
-
-  const amountButtonVariants = {
-    hover: {
-      scale: 1.08,
-      y: -5,
+      scale: 1.1,
+      rotate: 90,
       transition: {
         duration: 0.3,
         ease: "easeInOut",
       },
     },
     tap: {
-      scale: 0.95,
+      scale: 0.9,
+    },
+  };
+
+  const previewVariants = {
+    hidden: { 
+      opacity: 0, 
+      scale: 0.8,
+      filter: "blur(5px)"
+    },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: {
+        duration: 0.5,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
     },
   };
 
@@ -118,6 +117,7 @@ const Donatehero = () => {
     focus: {
       scale: 1.02,
       borderColor: "#8088E2",
+      boxShadow: "0 0 0 3px rgba(128, 136, 226, 0.1)",
       transition: {
         duration: 0.2,
       },
@@ -138,38 +138,30 @@ const Donatehero = () => {
     },
   };
 
-  const presetAmounts = [
-    { label: "wave", value: 1, image: WaveImage },
-    { label: "happy", value: 10, image: HappyImage },
-    { label: "smile", value: 5, image: SmileImage },
-    { label: "love", value: 20, image: LoveImage },
-    { label: "heart", value: 50, image: HeartImage },
-    { label: "dollar", value: 100, image: DollarImage },
-  ];
-
-  const onSelectAmount = (value) => {
-    setSelectedAmount(value);
-    setCustomAmount("");
-  };
-
-  const onPickImage = () => {
+  const onPickFile = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  const onImageChange = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+  const onFileChange = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    setFile(f);
+    const url = URL.createObjectURL(f);
+    setPreviewUrl(url);
   };
 
   const onSubmit = (e) => {
     e.preventDefault();
-    const amountToSend = customAmount ? Number(customAmount) : selectedAmount;
-    // For now just log; wire up to backend/payment later
-    // eslint-disable-next-line no-console
-    console.log({ amount: amountToSend, link, isAnonymous });
+    // Basic client-side checks
+    if (!file) {
+      alert("Please upload a .webM file.");
+      return;
+    }
+    if (!ownsRights) {
+      alert("Please confirm that you own all rights.");
+      return;
+    }
+    console.log({ desiredFee, paypalLink, email, fileName: file?.name });
   };
 
   return (
@@ -219,7 +211,7 @@ const Donatehero = () => {
           initial="hidden"
           animate={isTitleInView ? "visible" : "hidden"}
         >
-          Your Generosity fuels our <br className="hidden md:block" /> creativity!
+          Partner With Us!
         </motion.h1>
 
         {/* Subtext */}
@@ -230,10 +222,10 @@ const Donatehero = () => {
           animate={isTitleInView ? "visible" : "hidden"}
           transition={{ delay: 0.2 }}
         >
-          Donate to support free animations, new features, and more magic!
+          Submit to sell your .webM animation
         </motion.p>
 
-        {/* Donation form container */}
+        {/* Form container */}
         <motion.div 
           ref={formRef}
           className="relative w-full sm:w-[90vw] max-w-[900px] mx-auto pt-8 sm:pt-12 mb-6"
@@ -250,138 +242,110 @@ const Donatehero = () => {
           >
             <div className="bg-white rounded-[26px] overflow-hidden">
               <form onSubmit={onSubmit} className="px-4 sm:px-6 md:px-10 py-8 sm:py-10">
-                {/* Avatar Uploader */}
+                {/* Uploader */}
                 <motion.div 
                   className="flex flex-col items-center"
-                  variants={formVariants}
-                  initial="hidden"
-                  animate={isFormInView ? "visible" : "hidden"}
-                  transition={{ delay: 0.3 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.5 }}
                 >
                   <motion.button
                     type="button"
-                    onClick={onPickImage}
-                    className="w-20 h-20 md:w-24 md:h-24 rounded-full border-2 border-[#8088E2] bg-white shadow-sm grid place-items-center overflow-hidden"
-                    variants={buttonVariants}
+                    onClick={onPickFile}
+                    className="w-16 h-16 md:w-14 md:h-14 rounded-xl border-2 border-[#8088E2] bg-white shadow-sm grid place-items-center"
+                    variants={uploadButtonVariants}
                     whileHover="hover"
                     whileTap="tap"
                   >
-                    {imagePreview ? (
-                      <motion.img
-                        src={imagePreview}
-                        alt="preview"
-                        className="w-full h-full object-cover"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      />
-                    ) : (
-                      <User className="w-10 h-10 text-[#8088E2]" />
-                    )}
+                    <Plus className="w-8 h-8 text-[#8088E2]" />
                   </motion.button>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="video/webm,.webm"
                     className="hidden"
-                    onChange={onImageChange}
+                    onChange={onFileChange}
                   />
                   <motion.p 
-                    className="text-gray-600 mt-3 text-sm"
+                    className="text-gray-700 mt-4 text-base"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.5, duration: 0.3 }}
                   >
-                    Add Image
-                  </motion.p>
-                  <motion.p 
-                    className="text-gray-400 -mt-1 text-xs"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6, duration: 0.3 }}
-                  >
-                    (optional)
+                    Upload a .webM file (animated overlay with alpha channel)
                   </motion.p>
                 </motion.div>
 
-                {/* Preset Amounts */}
+                {/* Preview */}
                 <motion.div 
-                  className="mt-8 grid grid-cols-3 sm:flex sm:flex-row gap-3 sm:gap-4 justify-center"
-                  variants={formVariants}
-                  initial="hidden"
-                  animate={isFormInView ? "visible" : "hidden"}
-                  transition={{ delay: 0.4 }}
+                  className="mt-6 flex justify-center"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
                 >
-                  {presetAmounts.map((a, index) => {
-                    const active = selectedAmount === a.value && !customAmount;
-                    return (
-                      <motion.button
-                        key={a.value}
-                        type="button"
-                        onClick={() => onSelectAmount(a.value)}
-                        className={`w-20 h-16 sm:w-24 sm:h-20 rounded-xl border transition-all duration-200 shadow-sm relative overflow-hidden ${
-                          active
-                            ? "ring-2 ring-[#8088E2] shadow-lg"
-                            : "border-transparent hover:shadow-md"
-                        }`}
-                        style={{
-                          background: active
-                            ? "linear-gradient(to bottom, #C4C9FF, #E8EAFF)"
-                            : "linear-gradient(to bottom, #D4D6FF, #EEF0FF)",
-                        }}
-                        variants={amountButtonVariants}
-                        whileHover="hover"
-                        whileTap="tap"
-                        initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        transition={{ delay: 0.5 + index * 0.1, duration: 0.4 }}
+                  <motion.div 
+                    className="w-[330px] h-[180px] sm:w-[300px] sm:h-[170px] bg-[#eef0ff] border-2 border-[#c6caff] rounded-xl grid place-items-center overflow-hidden"
+                    whileHover={{
+                      scale: 1.02,
+                      borderColor: "#8088E2",
+                      transition: { duration: 0.2 }
+                    }}
+                  >
+                    {previewUrl ? (
+                      <motion.video 
+                        src={previewUrl} 
+                        controls 
+                        autoPlay 
+                        loop 
+                        muted 
+                        playsInline 
+                        className="w-full h-full object-contain bg-transparent"
+                        variants={previewVariants}
+                        initial="hidden"
+                        animate="visible"
+                      />
+                    ) : (
+                      <motion.span 
+                        className="text-[#8088E2] text-sm"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.6, duration: 0.3 }}
                       >
-                        <div className="flex flex-col items-center justify-center h-full">
-                          {/* All amounts now use images instead of emojis */}
-                          <motion.img
-                            src={a.image}
-                            alt={a.label}
-                            className="w-6 h-6 sm:w-8 sm:h-8 mb-1 object-contain"
-                            whileHover={{
-                              scale: 1.2,
-                              rotate: [0, -10, 10, 0],
-                              transition: { duration: 0.3 }
-                            }}
-                          />
-                          <div className="text-gray-900 text-sm sm:text-base font-semibold">
-                            ${a.value}
-                          </div>
-                        </div>
-                      </motion.button>
-                    );
-                  })}
+                        No preview
+                      </motion.span>
+                    )}
+                  </motion.div>
                 </motion.div>
 
                 {/* Inputs */}
                 <motion.div 
                   className="mt-8 space-y-3 sm:space-y-4 max-w-2xl mx-auto"
-                  variants={formVariants}
-                  initial="hidden"
-                  animate={isFormInView ? "visible" : "hidden"}
-                  transition={{ delay: 0.6 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, duration: 0.5 }}
                 >
                   <motion.input
-                    value={customAmount}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9.]/g, "");
-                      setCustomAmount(v);
-                      setSelectedAmount(null);
-                    }}
+                    value={desiredFee}
+                    onChange={(e) => setDesiredFee(e.target.value.replace(/[^0-9.]/g, ""))}
                     inputMode="decimal"
-                    placeholder="Custom Amount"
+                    placeholder="Desired Fee Input"
                     className="w-full h-12 rounded-xl border-2 border-[#8088E2] px-4 outline-none"
                     variants={inputVariants}
                     whileFocus="focus"
                   />
                   <motion.input
-                    value={link}
-                    onChange={(e) => setLink(e.target.value)}
-                    placeholder="Link your website or socials (optional)"
+                    value={paypalLink}
+                    onChange={(e) => setPaypalLink(e.target.value)}
+                    placeholder="PayPal.me Link"
+                    className="w-full h-12 rounded-xl border-2 border-[#8088E2] px-4 outline-none"
+                    variants={inputVariants}
+                    whileFocus="focus"
+                  />
+                  <motion.input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    placeholder="Email"
                     className="w-full h-12 rounded-xl border-2 border-[#8088E2] px-4 outline-none"
                     variants={inputVariants}
                     whileFocus="focus"
@@ -393,21 +357,20 @@ const Donatehero = () => {
                   >
                     <input
                       type="checkbox"
-                      checked={isAnonymous}
-                      onChange={(e) => setIsAnonymous(e.target.checked)}
+                      checked={ownsRights}
+                      onChange={(e) => setOwnsRights(e.target.checked)}
                       className="h-4 w-4 accent-[#8088E2]"
                     />
-                    <span>I want to donate anonymously</span>
+                    <span>You agree that you own all rights..</span>
                   </motion.label>
                 </motion.div>
 
                 {/* Submit */}
                 <motion.div 
                   className="mt-6 sm:mt-8 flex justify-center"
-                  variants={formVariants}
-                  initial="hidden"
-                  animate={isFormInView ? "visible" : "hidden"}
-                  transition={{ delay: 0.8 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8, duration: 0.5 }}
                 >
                   <motion.button
                     type="submit"
@@ -455,4 +418,4 @@ const Donatehero = () => {
   );
 };
 
-export default Donatehero;
+export default PartnerHero;
