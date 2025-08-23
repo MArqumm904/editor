@@ -1,6 +1,8 @@
 "use client"
 import { useParams, useNavigate } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
+import { motion, useInView } from "framer-motion"
+import { useRef } from "react"
 
 // Local image imports
 import img1 from "../assets/images/gallery/1.png"
@@ -14,6 +16,8 @@ import img7 from "../assets/images/gallery/7.png"
 const ImageDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const containerRef = useRef(null)
+  const isInView = useInView(containerRef, { once: true, margin: "-100px" })
 
   // Gallery items using imported images
   const galleryItems = [
@@ -40,92 +44,299 @@ const ImageDetail = () => {
     { id: 6, src: img3, artist: "Neal Wilson" },
   ]
 
-  return (
-    <div className="min-h-screen bg-black text-white px-6 pb-8">
-      <div className="pt-6 pb-8 ml-24">
-        <h1 className="text-2xl font-semibold text-white">Cinemaglosw</h1>
-      </div>
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  };
 
-      <div className="flex gap-6">
-        {/* Featured Image + Back Button */}
-        <div className="flex-1 flex items-start gap-4">
-          {/* Back Button - positioned to the left of image */}
-          <button
-            className="mt-4 w-20 h-10 bg-darkbg border border-white rounded-lg flex items-center justify-center hover:bg-darkbg transition-colors flex-shrink-0"
+  const titleVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: -30,
+      scale: 0.9,
+      filter: "blur(10px)"
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      filter: "blur(0px)",
+      transition: {
+        duration: 0.8,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const mainContentVariants = {
+    hidden: { 
+      opacity: 0, 
+      y: 50,
+      scale: 0.95
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.6,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const buttonVariants = {
+    hover: {
+      scale: 1.05,
+      backgroundColor: "#8088e2",
+      transition: {
+        duration: 0.2,
+        ease: "easeInOut",
+      },
+    },
+    tap: {
+      scale: 0.95,
+      transition: {
+        duration: 0.1,
+      },
+    },
+  };
+
+  const imageVariants = {
+    hover: {
+      scale: 1.02,
+      transition: {
+        duration: 0.3,
+        ease: "easeInOut",
+      },
+    },
+  };
+
+  const sidebarItemVariants = {
+    hidden: { opacity: 0, x: 30, scale: 0.9 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut",
+      },
+    },
+  };
+
+  const bottomGridVariants = {
+    hidden: { opacity: 0, y: 60 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: [0.25, 0.46, 0.45, 0.94],
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const gridItemVariants = {
+    hidden: { opacity: 0, y: 40, scale: 0.9 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut",
+      },
+    },
+  };
+
+  return (
+    <motion.div 
+      ref={containerRef}
+      className="min-h-screen bg-black text-white px-4 sm:px-6 lg:px-8 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate={isInView ? "visible" : "hidden"}
+    >
+      {/* Header */}
+      <motion.div 
+        className="pt-6 pb-8 ml-0 sm:ml-12 lg:ml-24"
+        variants={titleVariants}
+      >
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white">Cinemaglow</h1>
+          
+          {/* Back Button - Mobile/Tablet */}
+          <motion.button
+            className="lg:hidden w-10 h-10 bg-darkbg border border-white rounded-lg flex items-center justify-center hover:bg-darkbg transition-colors"
             onClick={() => navigate(-1)}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
           >
             <ArrowLeft className="w-5 h-5" />
-          </button>
+          </motion.button>
+        </div>
+      </motion.div>
 
+      {/* Main Content */}
+      <motion.div 
+        className="flex flex-col lg:flex-row gap-4 sm:gap-6"
+        variants={mainContentVariants}
+      >
+        {/* Featured Image + Back Button */}
+        <div className="flex-1 flex flex-col sm:flex-row items-start gap-4">
+          {/* Back Button - Desktop Only */}
+          <motion.button
+            className="hidden lg:flex w-20 h-10 bg-darkbg border border-white rounded-lg items-center justify-center hover:bg-darkbg transition-colors flex-shrink-0"
+            onClick={() => navigate(-1)}
+            variants={buttonVariants}
+            whileHover="hover"
+            whileTap="tap"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </motion.button>
 
           {/* Image and Info Container */}
-          <div className="flex-1">
-            <div className="bg-gray-800 rounded-2xl overflow-hidden">
+          <div className="flex-1 w-full">
+            <motion.div 
+              className="bg-gray-800 rounded-2xl overflow-hidden"
+              variants={imageVariants}
+              whileHover="hover"
+            >
               <img
                 src={featuredImage.src || "/placeholder.svg"}
                 alt={featuredImage.title}
-                className="w-full h-96 object-cover"
+                className="w-full h-64 sm:h-80 lg:h-96 object-cover"
               />
-            </div>
+            </motion.div>
 
             {/* Featured Image Info Below */}
-            <div className="mt-3">
-              <h2 className="text-lg font-medium mb-2 text-white">{featuredImage.title}</h2>
+            <motion.div 
+              className="mt-3"
+              variants={mainContentVariants}
+            >
+              <h2 className="text-base sm:text-lg font-medium mb-2 text-white">{featuredImage.title}</h2>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                  <span className="text-sm text-white font-semibold">{featuredImage.artist.charAt(0)}</span>
-                </div>
+                <motion.div 
+                  className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-500 rounded-full flex items-center justify-center"
+                  whileHover={{
+                    scale: 1.2,
+                    backgroundColor: "#8088e2",
+                    transition: { duration: 0.2 }
+                  }}
+                >
+                  <span className="text-xs sm:text-sm text-white font-semibold">{featuredImage.artist.charAt(0)}</span>
+                </motion.div>
                 <span className="text-white text-sm font-medium">{featuredImage.artist}</span>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
 
         {/* Sidebar Thumbnails */}
-        <div className="w-80">
-          <div className="grid grid-cols-2 gap-4">
-            {sidebarImages.map((item) => (
-              <div key={item.id} className="group cursor-pointer">
-                <div className="bg-gray-800 rounded-xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300">
-                  <img src={item.src || "/placeholder.svg"} alt="Thumbnail" className="w-full h-32 object-cover" />
-                </div>
+        <motion.div 
+          className="w-full lg:w-80"
+          variants={mainContentVariants}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3 sm:gap-4">
+            {sidebarImages.map((item, index) => (
+              <motion.div 
+                key={item.id} 
+                className="group cursor-pointer"
+                variants={sidebarItemVariants}
+                custom={index}
+                whileHover={{
+                  scale: 1.05,
+                  transition: { duration: 0.2 }
+                }}
+              >
+                <motion.div 
+                  className="bg-gray-800 rounded-xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300"
+                  variants={imageVariants}
+                  whileHover="hover"
+                >
+                  <img 
+                    src={item.src || "/placeholder.svg"} 
+                    alt="Thumbnail" 
+                    className="w-full h-24 sm:h-32 object-cover" 
+                  />
+                </motion.div>
                 {/* Artist Info Below Thumbnail */}
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                  <motion.div 
+                    className="w-4 h-4 sm:w-5 sm:h-5 bg-orange-500 rounded-full flex items-center justify-center"
+                    whileHover={{
+                      scale: 1.2,
+                      backgroundColor: "#8088e2",
+                      transition: { duration: 0.2 }
+                    }}
+                  >
                     <span className="text-xs text-white font-semibold">{item.artist.charAt(0)}</span>
-                  </div>
+                  </motion.div>
                   <span className="text-white text-xs font-medium truncate">{item.artist}</span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
       {/* Bottom Gallery Grid */}
-      <div className="mt-12">
-        <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-6">
-          {galleryItems.map((item) => (
-            <div key={`bottom-${item.id}`} className="break-inside-avoid group cursor-pointer">
-              <div className="bg-gray-800 rounded-2xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 hover:shadow-2xl">
+      <motion.div 
+        className="mt-8 sm:mt-12"
+        variants={bottomGridVariants}
+      >
+        <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4 sm:space-y-6">
+          {galleryItems.map((item, index) => (
+            <motion.div 
+              key={`bottom-${item.id}`} 
+              className="break-inside-avoid group cursor-pointer"
+              variants={gridItemVariants}
+              custom={index}
+              whileHover={{
+                scale: 1.02,
+                transition: { duration: 0.2 }
+              }}
+            >
+              <motion.div 
+                className="bg-gray-800 rounded-2xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 hover:shadow-2xl"
+                variants={imageVariants}
+                whileHover="hover"
+              >
                 <img
                   src={item.src || "/placeholder.svg"}
                   alt={item.title}
                   className={`w-full object-cover ${item.height}`}
                 />
-              </div>
+              </motion.div>
               {/* Artist Info Below Each Image */}
               <div className="mt-3 flex items-center gap-2">
-                <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                <motion.div 
+                  className="w-5 h-5 sm:w-6 sm:h-6 bg-orange-500 rounded-full flex items-center justify-center"
+                  whileHover={{
+                    scale: 1.2,
+                    backgroundColor: "#8088e2",
+                    transition: { duration: 0.2 }
+                  }}
+                >
                   <span className="text-xs text-white font-semibold">{item.artist.charAt(0)}</span>
-                </div>
-                <span className="text-white text-sm font-medium">{item.artist}</span>
+                </motion.div>
+                <span className="text-white text-xs sm:text-sm font-medium">{item.artist}</span>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
