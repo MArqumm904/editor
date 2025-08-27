@@ -6,6 +6,9 @@ import MainCanvas from '../components/EditorComponents/MainCanvas';
 import RightSidebar from '../components/EditorComponents/RightPanel';
 
 const Create = () => {
+    useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const [uploadedMedia, setUploadedMedia] = useState([]);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(null);
 

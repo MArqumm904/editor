@@ -2,7 +2,7 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 import { motion, useInView } from "framer-motion"
-import { useRef } from "react"
+import { useRef,useEffect } from "react"
 
 // Local image imports
 import img1 from "../assets/images/gallery/1.png"
@@ -14,6 +14,9 @@ import img6 from "../assets/images/gallery/6.jpg"
 import img7 from "../assets/images/gallery/7.png"
 
 const ImageDetail = () => {
+    useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const { id } = useParams()
   const navigate = useNavigate()
   const containerRef = useRef(null)

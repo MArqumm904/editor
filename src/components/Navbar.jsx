@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
+import logo from ".././assets/images/logo1.png";
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+
   const links = [
-    { name: "Create", path: "/" }, 
+    { name: "Create", path: "/" },
     { name: "Gallery", path: "/gallery" },
     { name: "Donate", path: "/donate" },
     { name: "Contact", path: "/contact" },
@@ -21,8 +22,13 @@ const Navbar = () => {
         {/* Desktop Layout */}
         <div className="hidden lg:flex items-center justify-between">
           {/* Logo */}
-          <h1 className="text-4xl font-semibold tracking-wider">Cinemaglow</h1>
+          {/* <h1 className="text-4xl font-semibold tracking-wider">Cinemaglow</h1> */}
 
+          <img
+            src={logo}
+            alt="Cinemaglow Logo"
+            className="h-24 w-auto object-contain"
+          />
           {/* Nav Links */}
           <div
             className="relative backdrop-blur-xl border border-white/20 px-7 py-2 rounded-full flex items-center gap-1"
@@ -87,8 +93,10 @@ const Navbar = () => {
           {/* Mobile Header */}
           <div className="flex items-center justify-between">
             {/* Logo - Smaller on mobile */}
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-wider">Cinemaglow</h1>
-            
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-wider">
+              Cinemaglow
+            </h1>
+
             {/* Mobile Menu Button */}
             <button
               onClick={toggleMobileMenu}
@@ -125,9 +133,7 @@ const Navbar = () => {
           {/* Mobile Menu */}
           <div
             className={`mt-4 transition-all duration-300 ease-in-out overflow-hidden ${
-              isMobileMenuOpen
-                ? "max-h-96 opacity-100"
-                : "max-h-0 opacity-0"
+              isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
             }`}
           >
             <div
@@ -155,7 +161,7 @@ const Navbar = () => {
                   {link.name}
                 </NavLink>
               ))}
-              
+
               {/* Mobile Donate Button */}
               <div className="pt-2">
                 <button
