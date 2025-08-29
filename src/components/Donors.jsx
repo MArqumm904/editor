@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, useInView } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 import ppf from "../assets/images/image.png";
 import DollarImage from "../assets/images/dollar.png";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -7,33 +7,29 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 const Donors = () => {
   const donors = [
     { id: 1, name: "John Doe", amount: "$100" },
-    { id: 2, name: "John Doe", amount: "$100" },
-    { id: 3, name: "John Doe", amount: "$100" },
-    { id: 4, name: "John Doe", amount: "$100" },
-    { id: 5, name: "John Doe", amount: "$100" },
-    { id: 6, name: "John Doe", amount: "$100" },
-    { id: 7, name: "John Doe", amount: "$100" },
-    { id: 8, name: "John Doe", amount: "$100" },
-    { id: 9, name: "John Doe", amount: "$100" },
-    { id: 10, name: "John Doe", amount: "$100" },
-    { id: 11, name: "John Doe", amount: "$100" },
-    { id: 12, name: "John Doe", amount: "$100" },
-    { id: 13, name: "John Doe", amount: "$100" },
-    { id: 14, name: "John Doe", amount: "$100" },
-    { id: 15, name: "John Doe", amount: "$100" },
-    { id: 16, name: "John Doe", amount: "$100" },
+    { id: 2, name: "Jane Smith", amount: "$250" },
+    { id: 3, name: "Mike Johnson", amount: "$150" },
+    { id: 4, name: "Sarah Wilson", amount: "$300" },
+    { id: 5, name: "David Brown", amount: "$200" },
+    { id: 6, name: "Lisa Davis", amount: "$180" },
+    { id: 7, name: "Tom Miller", amount: "$220" },
+    { id: 8, name: "Amy Taylor", amount: "$190" },
+    { id: 9, name: "Chris Lee", amount: "$280" },
+    { id: 10, name: "Emma White", amount: "$160" },
+    { id: 11, name: "Ryan Clark", amount: "$240" },
+    { id: 12, name: "Sophie Hall", amount: "$210" },
+    { id: 13, name: "Alex Green", amount: "$170" },
+    { id: 14, name: "Maya Patel", amount: "$260" },
+    { id: 15, name: "Jake Adams", amount: "$140" },
+    { id: 16, name: "Zoe Cooper", amount: "$320" },
   ];
 
   const [itemsPerPage, setItemsPerPage] = useState(1);
   const [currentPage, setCurrentPage] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef(null);
   const titleRef = useRef(null);
   const carouselRef = useRef(null);
-
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragDeltaX, setDragDeltaX] = useState(0);
+  const trackRef = useRef(null);
 
   // Scroll animations
   const isTitleInView = useInView(titleRef, { once: true, margin: "-100px" });
@@ -106,23 +102,6 @@ const Donors = () => {
     },
   };
 
-  const cardHoverVariants = {
-    hover: {
-      scale: 0.95,
-      y: -15,
-      transition: {
-        duration: 0.3,
-        ease: "easeInOut",
-      },
-    },
-    tap: {
-      scale: 0.9,
-      transition: {
-        duration: 0.1,
-      },
-    },
-  };
-
   const buttonVariants = {
     hover: {
       scale: 1.15,
@@ -151,31 +130,6 @@ const Donors = () => {
     },
   };
 
-  const pageTransitionVariants = {
-    enter: {
-      opacity: 0,
-      x: 100,
-      scale: 0.95,
-    },
-    center: {
-      opacity: 1,
-      x: 0,
-      scale: 1,
-      transition: {
-        duration: 0.5,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      },
-    },
-    exit: {
-      opacity: 0,
-      x: -100,
-      scale: 0.95,
-      transition: {
-        duration: 0.3,
-      },
-    },
-  };
-
   const computeItemsPerPage = () => {
     if (typeof window === "undefined") return 1;
     if (window.matchMedia("(min-width: 1024px)").matches) return 4;
@@ -186,8 +140,6 @@ const Donors = () => {
   useEffect(() => {
     const update = () => {
       setItemsPerPage(computeItemsPerPage());
-      const width = containerRef.current ? containerRef.current.clientWidth : 0;
-      setContainerWidth(width);
     };
     update();
     window.addEventListener("resize", update);
@@ -208,43 +160,17 @@ const Donors = () => {
     }
   }, [pages.length, currentPage]);
 
-  const goPrev = () => setCurrentPage((p) => Math.max(0, p - 1));
-  const goNext = () => setCurrentPage((p) => Math.min(pages.length - 1, p + 1));
-
-  const onPointerDown = (e) => {
-    setIsDragging(true);
-    setDragStartX(e.clientX);
-    setDragDeltaX(0);
-    try {
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-    } catch {}
-  };
-
-  const onPointerMove = (e) => {
-    if (!isDragging) return;
-    const rawDelta = e.clientX - dragStartX;
-    const atFirst = currentPage === 0;
-    const atLast = currentPage === pages.length - 1;
-    let nextDelta = rawDelta;
-    if (atFirst && rawDelta > 0) nextDelta = rawDelta * 0.3;
-    if (atLast && rawDelta < 0) nextDelta = rawDelta * 0.3;
-    setDragDeltaX(nextDelta);
-  };
-
-  const endDrag = () => {
-    if (!isDragging) return;
-    const threshold = Math.max(60, containerWidth * 0.2);
-    if (dragDeltaX <= -threshold && currentPage < pages.length - 1) {
-      goNext();
-    } else if (dragDeltaX >= threshold && currentPage > 0) {
-      goPrev();
+  const goPrev = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
     }
-    setIsDragging(false);
-    setDragDeltaX(0);
   };
 
-  const dragPercent =
-    containerWidth > 0 ? (dragDeltaX / containerWidth) * 100 : 0;
+  const goNext = () => {
+    if (currentPage < pages.length - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   return (
     <motion.div 
@@ -273,58 +199,57 @@ const Donors = () => {
           initial="hidden"
           animate={isCarouselInView ? "visible" : "hidden"}
         >
-          {/* Track */}
-          <div
-            ref={containerRef}
-            className="overflow-hidden select-none"
-            style={{ touchAction: "pan-y" }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerLeave={endDrag}
-            onPointerCancel={endDrag}
-          >
+          {/* Track Container */}
+          <div ref={containerRef} className="overflow-hidden">
             <motion.div
+              ref={trackRef}
               className="flex"
-              style={{
-                transform: `translateX(calc(-${
-                  currentPage * 100
-                }% + ${dragPercent}%))`,
-                transitionProperty: "transform",
-                transitionDuration: isDragging ? "0ms" : "500ms",
-              }}
               animate={{
-                x: `calc(-${currentPage * 100}% + ${dragPercent}%)`,
+                x: `-${currentPage * 100}%`,
               }}
               transition={{
-                duration: isDragging ? 0 : 0.6,
-                ease: [0.25, 0.46, 0.45, 0.94],
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+                mass: 0.8,
+              }}
+              drag="x"
+              dragConstraints={{
+                left: -(pages.length - 1) * (containerRef.current?.offsetWidth || 0),
+                right: 0,
+              }}
+              dragElastic={0.1}
+              dragMomentum={false}
+              onDragEnd={(event, info) => {
+                const threshold = 100; // Minimum drag distance to trigger page change
+                
+                // If drag distance is significant enough, change page
+                if (info.offset.x < -threshold) {
+                  // Swipe left - go to next page
+                  goNext();
+                } else if (info.offset.x > threshold) {
+                  // Swipe right - go to previous page
+                  goPrev();
+                }
               }}
             >
               {pages.map((group, pageIndex) => (
                 <div key={pageIndex} className="w-full shrink-0 px-1">
-                  <motion.div 
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 mb-8 md:mb-12"
-                    variants={pageTransitionVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    key={`page-${currentPage}`}
-                  >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 mb-8 md:mb-12">
                     {group.map((donor, index) => (
                       <motion.div
                         key={donor.id}
-                        className="relative z-0 bg-gradient-to-b from-[#8088E2] to-[#0D0B13] rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col items-center text-center shadow-lg border-2 border-[#8088e2] overflow-hidden cursor-grab active:cursor-grabbing"
+                        className="relative bg-gradient-to-b from-[#8088E2] to-[#0D0B13] rounded-2xl p-5 sm:p-6 md:p-8 flex flex-col items-center text-center shadow-lg border-2 border-[#8088e2] overflow-hidden"
                         variants={cardVariants}
-                        custom={index}
-                        whileHover="hover"
-                        whileTap="tap"
-                        drag="x"
-                        dragConstraints={{ left: 0, right: 0 }}
-                        dragElastic={0.1}
                         initial="hidden"
                         animate={isCarouselInView ? "visible" : "hidden"}
                         transition={{ delay: index * 0.1 }}
+                        whileHover={{
+                          // scale: 1.05,
+                          // y: -10,
+                          transition: { duration: 0.3 }
+                        }}
+                        whileTap={{ scale: 0.95 }}
                       >
                         <div className="relative z-10 flex flex-col items-center">
                           <motion.div 
@@ -337,7 +262,7 @@ const Donors = () => {
                           >
                             <img
                               src={ppf}
-                              alt=""
+                              alt={donor.name}
                               className="w-full h-full object-cover bg-gray-300 rounded-full"
                               draggable={false}
                             />
@@ -379,41 +304,40 @@ const Donors = () => {
                           </motion.div>
                         </div>
 
-                        {/* Bottom black gradient overlay (subtle) */}
+                        {/* Bottom gradient overlay */}
                         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/35 to-transparent"></div>
                       </motion.div>
                     ))}
-                  </motion.div>
+                  </div>
                 </div>
               ))}
             </motion.div>
           </div>
 
-          {/* Controls */}
+          {/* Navigation Buttons */}
           <motion.button
             onClick={goPrev}
             disabled={currentPage === 0}
-            className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white px-2 py-2 rounded-full backdrop-blur disabled:opacity-40"
+            className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white px-2 py-2 rounded-full backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed z-10"
             aria-label="Previous"
             variants={buttonVariants}
-            whileHover="hover"
-            whileTap="tap"
-            whileDisabled={{ opacity: 0.4 }}
+            whileHover={currentPage > 0 ? "hover" : {}}
+            whileTap={currentPage > 0 ? "tap" : {}}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.3 }}
           >
             <ArrowLeft size={18} />
           </motion.button>
+          
           <motion.button
             onClick={goNext}
             disabled={currentPage === pages.length - 1}
-            className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white px-2 py-2 rounded-full backdrop-blur disabled:opacity-40"
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white px-2 py-2 rounded-full backdrop-blur disabled:opacity-40 disabled:cursor-not-allowed z-10"
             aria-label="Next"
             variants={buttonVariants}
-            whileHover="hover"
-            whileTap="tap"
-            whileDisabled={{ opacity: 0.4 }}
+            whileHover={currentPage < pages.length - 1 ? "hover" : {}}
+            whileTap={currentPage < pages.length - 1 ? "tap" : {}}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.3 }}
@@ -434,7 +358,7 @@ const Donors = () => {
               key={i}
               aria-label={`Go to slide ${i + 1}`}
               onClick={() => setCurrentPage(i)}
-              className={`w-2 h-2 rounded-full ${
+              className={`w-2 h-2 rounded-full transition-colors ${
                 i === currentPage ? "bg-[#8088e2]" : "bg-gray-600"
               }`}
               variants={dotVariants}
