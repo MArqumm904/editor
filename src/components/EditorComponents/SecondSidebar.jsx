@@ -1,4 +1,3 @@
-// src/components/EditorComponents/SecondSidebar.jsx
 import React, { useState, useRef } from "react";
 import GifImage from "../../assets/images/gif.png";
 import DocImage from "../../assets/images/doc.png";
@@ -6,7 +5,7 @@ import PlayImage from "../../assets/images/play.png";
 import Dots from "../../assets/images/dots.png";
 import { ChevronDown, Image, Play, Move } from "lucide-react";
 
-const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReorder }) => {
+const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReorder, isMobile = false }) => {
   const [activeTab, setActiveTab] = useState("Upload");
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedLayerIndex, setDraggedLayerIndex] = useState(null);
@@ -67,7 +66,6 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
     handleFileUpload(files);
   };
 
-  // Layer drag and drop handlers
   const handleLayerDragStart = (e, index) => {
     setDraggedLayerIndex(index);
     e.dataTransfer.effectAllowed = 'move';
@@ -87,12 +85,10 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
   const handleLayerDrop = (e, dropIndex) => {
     e.preventDefault();
     if (draggedLayerIndex !== null && draggedLayerIndex !== dropIndex) {
-      // Reorder the media array
       const newMediaOrder = [...uploadedMedia];
       const [draggedItem] = newMediaOrder.splice(draggedLayerIndex, 1);
       newMediaOrder.splice(dropIndex, 0, draggedItem);
       
-      // Call the reorder function to update parent state
       if (onMediaReorder) {
         onMediaReorder(newMediaOrder);
       }
@@ -107,25 +103,31 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
   };
 
   return (
-    <div className="w-72 bg-[#121018] p-4 rounded-lg  my-2">
-      {/* Header */}
-      <h1 className="text-white text-xl font-bold mb-4">Cinemaglow</h1>
+    <div className={`bg-[#121018] rounded-lg ${
+      isMobile 
+        ? 'w-full h-full p-4' 
+        : 'w-72 p-4 my-2'
+    }`}>
+      {/* Header - Only show on desktop or when mobile needs it */}
+      {!isMobile && (
+        <h1 className="text-white text-xl font-bold mb-4">Cinemaglow</h1>
+      )}
 
       {/* Tab Toggle */}
       <div className="flex mb-4">
-        <div className="flex bg-[#8088e2] rounded-2xl overflow-hidden p-1">
+        <div className="flex bg-[#8088e2] rounded-2xl overflow-hidden p-1 w-full">
           <button
-            className={`px-11 py-2 text-xs font-medium transition-colors rounded-2xl ${
+            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
               activeTab === "Layer"
                 ? "bg-[#fff] text-black"
                 : "text-[#ffffff] hover:text-white"
             }`}
             onClick={() => setActiveTab("Layer")}
           >
-            Layer
+            Layer {uploadedMedia.length > 0 && `(${uploadedMedia.length})`}
           </button>
           <button
-            className={`px-11 py-1 text-xs font-medium transition-colors rounded-2xl ${
+            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
               activeTab === "Upload"
                 ? "bg-[#fff] text-black"
                 : "text-[#ffffff] hover:text-white"
@@ -153,7 +155,9 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
 
           {/* Media Import Zone */}
           <div 
-            className={`border-2 border-dashed rounded-2xl p-8 text-center h-[33rem] flex flex-col justify-center cursor-pointer transition-all duration-200 ${
+            className={`border-2 border-dashed rounded-2xl p-8 text-center ${
+              isMobile ? 'h-[22rem]' : 'h-[33rem]'
+            } flex flex-col justify-center cursor-pointer transition-all duration-200 ${
               isDragOver 
                 ? "border-[#8088e2] bg-[#1a1a2e] scale-105" 
                 : "border-white hover:border-[#8088e2] hover:bg-[#1a1a2e]"
@@ -172,7 +176,9 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
             <p className="text-white text-xs mb-2">
               {isDragOver 
                 ? "Drop your media here!" 
-                : "Drag & Drop Media From Your Device To Import"
+                : isMobile 
+                  ? "Tap to Upload Media From Your Device"
+                  : "Drag & Drop Media From Your Device To Import"
               }
             </p>
 
@@ -191,11 +197,13 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
         </div>
       ) : (
         /* Layer Content */
-        <div className="max-w-full bg-[#17151d] rounded-xl p-2 h-[38rem]">
+        <div className={`max-w-full bg-[#17151d] rounded-xl p-2 ${
+          isMobile ? 'h-96' : 'h-[38rem]'
+        }`}>
           <div className="text-white text-xs opacity-70 mb-3 px-2">
-            💡 Drag layers to reorder them. Higher numbers appear on top.
+            {isMobile ? "Tap to select • Long press to reorder" : "💡 Drag layers to reorder them. Higher numbers appear on top."}
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto max-h-full">
             {uploadedMedia && uploadedMedia.length > 0 ? (
               uploadedMedia.map((media, index) => (
                 <div
@@ -209,20 +217,26 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                       ? 'border-2 border-[#8088e2] bg-[#2a2830]' : ''
                   }`}
                   onClick={() => onMediaSelect(index)}
-                  draggable
-                  onDragStart={(e) => handleLayerDragStart(e, index)}
-                  onDragOver={(e) => handleLayerDragOver(e, index)}
-                  onDragLeave={handleLayerDragLeave}
-                  onDrop={(e) => handleLayerDrop(e, index)}
-                  onDragEnd={handleLayerDragEnd}
+                  {...(!isMobile && {
+                    draggable: true,
+                    onDragStart: (e) => handleLayerDragStart(e, index),
+                    onDragOver: (e) => handleLayerDragOver(e, index),
+                    onDragLeave: handleLayerDragLeave,
+                    onDrop: (e) => handleLayerDrop(e, index),
+                    onDragEnd: handleLayerDragEnd
+                  })}
                 >
-                  {/* Drag Handle */}
-                  <div className="flex flex-col mr-3 ms-1 cursor-move">
-                    <img src={Dots} alt="Drag to reorder" className="opacity-60 hover:opacity-100 transition-opacity" />
-                  </div>
+                  {/* Drag Handle - Only show on desktop */}
+                  {!isMobile && (
+                    <div className="flex flex-col mr-3 ms-1 cursor-move">
+                      <img src={Dots} alt="Drag to reorder" className="opacity-60 hover:opacity-100 transition-opacity" />
+                    </div>
+                  )}
 
                   {/* Thumbnail */}
-                  <div className="w-10 h-12 bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden">
+                  <div className={`${
+                    isMobile ? 'w-12 h-12' : 'w-10 h-12'
+                  } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
                     {media && media.type && media.type.startsWith('image/') ? (
                       <img
                         src={media.preview}
@@ -241,8 +255,14 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   </div>
 
                   {/* Layer Name */}
-                  <span className="text-white text-sm font-medium flex-1">
-                    {media && media.name ? media.name : 'Unknown Media'}
+                  <span className={`text-white font-medium flex-1 ${
+                    isMobile ? 'text-sm' : 'text-sm'
+                  }`}>
+                    {media && media.name ? (
+                      isMobile && media.name.length > 15 
+                        ? media.name.substring(0, 15) + "..." 
+                        : media.name
+                    ) : 'Unknown Media'}
                   </span>
                   
                   {/* Layer Number (Z-Index) */}
@@ -257,13 +277,17 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   key={layer.id}
                   className="flex items-center p-2 bg-[#1d1b23] rounded-xl hover:bg-[#222128] transition-colors cursor-pointer"
                 >
-                  {/* Drag Handle */}
-                  <div className="flex flex-col mr-3 ms-1">
-                    <img src={Dots} alt="" />
-                  </div>
+                  {/* Drag Handle - Only show on desktop */}
+                  {!isMobile && (
+                    <div className="flex flex-col mr-3 ms-1">
+                      <img src={Dots} alt="" />
+                    </div>
+                  )}
 
                   {/* Thumbnail */}
-                  <div className="w-10 h-12 bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden">
+                  <div className={`${
+                    isMobile ? 'w-12 h-12' : 'w-10 h-12'
+                  } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
                     <img
                       src="https://images.pexels.com/photos/23897250/pexels-photo-23897250.jpeg?_gl=1*1msubz2*_ga*OTc3NzE2NDMwLjE3NTQzMjc5MTY.*_ga_8JE65Q40S6*czE3NTUyODkxNjkkbzIkZzEkdDE3NTUyODkxOTgkajMxJGwwJGgw"
                       alt=""
@@ -271,8 +295,13 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   </div>
 
                   {/* Layer Name */}
-                  <span className="text-white text-sm font-medium">
-                    {layer.name}
+                  <span className={`text-white font-medium ${
+                    isMobile ? 'text-sm' : 'text-sm'
+                  }`}>
+                    {isMobile && layer.name.length > 15 
+                      ? layer.name.substring(0, 15) + "..." 
+                      : layer.name
+                    }
                   </span>
                   
                   {/* Layer Number (Z-Index) */}

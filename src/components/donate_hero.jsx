@@ -11,7 +11,8 @@ import WaveImage from "../assets/images/wave.png";
 import SmileImage from "../assets/images/smile.png";
 import HappyImage from "../assets/images/happy.png"; 
 import LoveImage from "../assets/images/love.png"; 
-import HeartImage from "../assets/images/heart.png"; 
+import HeartImage from "../assets/images/heart.png";
+import StripePaymentModal from "./StripePaymentModal"; 
 
 const Donatehero = () => {
   const [selectedAmount, setSelectedAmount] = useState(null);
@@ -19,6 +20,9 @@ const Donatehero = () => {
   const [link, setLink] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState("");
   const fileInputRef = useRef(null);
   const titleRef = useRef(null);
   const formRef = useRef(null);
@@ -167,9 +171,50 @@ const Donatehero = () => {
   const onSubmit = (e) => {
     e.preventDefault();
     const amountToSend = customAmount ? Number(customAmount) : selectedAmount;
-    // For now just log; wire up to backend/payment later
-    // eslint-disable-next-line no-console
-    console.log({ amount: amountToSend, link, isAnonymous });
+    
+    if (!amountToSend || amountToSend <= 0) {
+      setPaymentError("Please select or enter a valid donation amount");
+      return;
+    }
+
+    // Clear previous messages
+    setPaymentError("");
+    setPaymentSuccess("");
+    
+    // Set payment data for the modal
+    window.paymentData = {
+      name: '',
+      email: '',
+      anonymous: isAnonymous,
+      link: link
+    };
+    
+    // Show payment modal
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (paymentIntent) => {
+    setPaymentSuccess("Payment successful! Thank you for your donation.");
+    setShowPaymentModal(false);
+    
+    // Reset form
+    setSelectedAmount(null);
+    setCustomAmount("");
+    setLink("");
+    setIsAnonymous(false);
+    setImagePreview(null);
+    
+    // Clear payment data
+    window.paymentData = null;
+  };
+
+  const handlePaymentError = (error) => {
+    setPaymentError(error);
+    setShowPaymentModal(false);
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
   };
 
   return (
@@ -378,6 +423,8 @@ const Donatehero = () => {
                     variants={inputVariants}
                     whileFocus="focus"
                   />
+                  
+                  
                   <motion.input
                     value={link}
                     onChange={(e) => setLink(e.target.value)}
@@ -400,6 +447,21 @@ const Donatehero = () => {
                     <span>I want to donate anonymously</span>
                   </motion.label>
                 </motion.div>
+
+                {/* Success/Error Messages */}
+                {(paymentSuccess || paymentError) && (
+                  <motion.div 
+                    className="mt-4 p-4 rounded-xl text-center"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      backgroundColor: paymentSuccess ? '#f0f9ff' : '#fef2f2',
+                      color: paymentSuccess ? '#0369a1' : '#dc2626'
+                    }}
+                  >
+                    {paymentSuccess || paymentError}
+                  </motion.div>
+                )}
 
                 {/* Submit */}
                 <motion.div 
@@ -451,6 +513,15 @@ const Donatehero = () => {
           className="w-full h-full object-contain"
         />
       </motion.div>
+
+      {/* Stripe Payment Modal */}
+      <StripePaymentModal
+        isOpen={showPaymentModal}
+        onClose={closePaymentModal}
+        amount={customAmount ? Number(customAmount) : selectedAmount}
+        onSuccess={handlePaymentSuccess}
+        onError={handlePaymentError}
+      />
     </motion.div>
   );
 };
