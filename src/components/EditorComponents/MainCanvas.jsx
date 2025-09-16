@@ -143,40 +143,6 @@ const MainCanvas = ({
     };
   }, []);
 
-  const exportCanvasAsImageDebounced = useCallback(
-    debounce(() => {
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      setTimeout(() => {
-        const dataURL = stage.toDataURL({
-          pixelRatio: 2,
-          mimeType: "image/png",
-        });
-
-        const link = document.createElement("a");
-        link.download = "cinemaglow.png";
-        link.href = dataURL;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, 100);
-    }, 300), // 300ms debounce
-    []
-  );
-
-  function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
-
   // Arrow key navigation ke liye ye useEffect add karein
   useEffect(() => {
     const handleKeyDown = (e) => {
