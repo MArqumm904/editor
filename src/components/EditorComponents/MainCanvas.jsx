@@ -1,5 +1,4 @@
-// src/components/EditorComponents/MainCanvas.jsx
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect,useCallback } from "react";
 import {
   Stage,
   Layer,
@@ -110,33 +109,73 @@ const MainCanvas = ({
 
   const lastActiveEffectRef = useRef(null);
 
-  // MainCanvas component me ye function add karein
   const exportCanvasAsImage = () => {
     const stage = stageRef.current;
-    if (stage) {
+    if (!stage) return;
+
+    setTimeout(() => {
       const dataURL = stage.toDataURL({
-        pixelRatio: 2, // High quality ke liye
+        pixelRatio: 2,
         mimeType: "image/png",
       });
 
       const link = document.createElement("a");
       link.download = "cinemaglow.png";
       link.href = dataURL;
+      document.body.appendChild(link); // Add to DOM
       link.click();
-    }
+      document.body.removeChild(link); // Remove from DOM
+    }, 100);
   };
 
-  // useEffect add karein jo export event ko listen kare
   useEffect(() => {
     const handleExportEvent = (e) => {
-      if (e.detail.format === "image") {
+      if (e.detail?.format === "image" && !e.detail?.processed) {
+        e.detail.processed = true; // Mark as processed
         exportCanvasAsImage();
       }
     };
 
-    window.addEventListener("exportCanvas", handleExportEvent);
-    return () => window.removeEventListener("exportCanvas", handleExportEvent);
+    window.addEventListener("exportCanvas", handleExportEvent, { once: false });
+
+    return () => {
+      window.removeEventListener("exportCanvas", handleExportEvent);
+    };
   }, []);
+
+  const exportCanvasAsImageDebounced = useCallback(
+    debounce(() => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      setTimeout(() => {
+        const dataURL = stage.toDataURL({
+          pixelRatio: 2,
+          mimeType: "image/png",
+        });
+
+        const link = document.createElement("a");
+        link.download = "cinemaglow.png";
+        link.href = dataURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, 100);
+    }, 300), // 300ms debounce
+    []
+  );
+
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
 
   // Arrow key navigation ke liye ye useEffect add karein
   useEffect(() => {
