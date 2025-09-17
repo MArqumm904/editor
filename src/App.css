@@ -1,0 +1,10 @@
+.effect-overlay {
+  transition: left 0.05s linear, top 0.05s linear;
+  overflow: hidden !important;
+}
+
+/* Container for the canvas */
+.canvas-container {
+  overflow: hidden;
+  position: relative;
+}

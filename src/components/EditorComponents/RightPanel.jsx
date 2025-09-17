@@ -652,7 +652,7 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
             type="button"
           >
             <span className="text-[#fff] text-[0.810rem] ms-2 mb-1 font-medium">
-              Categories
+              Image Overlays
             </span>
             {isCategoriesOpen ? (
               <ChevronDown className="w-4 h-4 text-[#fff] transition-transform duration-200" />

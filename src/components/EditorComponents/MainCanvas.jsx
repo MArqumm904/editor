@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect,useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Stage,
   Layer,
@@ -30,10 +30,11 @@ const MainCanvas = ({
   onRemoveMedia,
 }) => {
   // ----- UPDATED EffectOverlay (now accepts effectUrl + target) -----
+  // ----- UPDATED EffectOverlay (now accepts effectUrl + target) -----
   const EffectOverlay = ({ effectUrl, target }) => {
     if (!effectUrl || !target) return null;
 
-    // Calculate Stage offset within the centered container (same as draggable effects)
+    // Calculate Stage offset within the centered container
     const containerRect = canvasRef.current?.getBoundingClientRect();
     const stageElement = stageRef.current?.getStage().container();
     const stageRect = stageElement?.getBoundingClientRect();
@@ -42,20 +43,47 @@ const MainCanvas = ({
     const stageOffsetY =
       stageRect && containerRect ? stageRect.top - containerRect.top : 0;
 
-    // Position effect relative to Stage position
-    const finalX = stageOffsetX + target.x;
-    const finalY = stageOffsetY + target.y;
+    // Calculate position relative to Stage position
+    let effectX = target.x;
+    let effectY = target.y;
+
+    // Calculate how much of the image is visible within canvas
+    const visibleWidth = Math.min(
+      target.width,
+      canvasSize.width - Math.max(0, effectX),
+      Math.max(0, effectX + target.width) - Math.max(0, effectX)
+    );
+
+    const visibleHeight = Math.min(
+      target.height,
+      canvasSize.height - Math.max(0, effectY),
+      Math.max(0, effectY + target.height) - Math.max(0, effectY)
+    );
+
+    // Calculate the visible portion of the effect
+    const effectOffsetX = Math.max(0, -effectX);
+    const effectOffsetY = Math.max(0, -effectY);
+
+    // Convert to absolute positioning for the overlay
+    const finalX = stageOffsetX + Math.max(0, effectX);
+    const finalY = stageOffsetY + Math.max(0, effectY);
+
+    // If no part of the effect is visible, don't render it
+    if (visibleWidth <= 0 || visibleHeight <= 0) {
+      return null;
+    }
 
     return (
       <div
-        className="absolute pointer-events-none"
+        className="absolute pointer-events-none effect-overlay"
         style={{
           left: finalX,
           top: finalY,
-          width: target.width,
-          height: target.height,
+          width: visibleWidth,
+          height: visibleHeight,
           opacity: 0.45,
           zIndex: 1000,
+          overflow: "hidden",
         }}
       >
         <img
@@ -66,6 +94,8 @@ const MainCanvas = ({
             pointerEvents: "none",
             userSelect: "none",
             mixBlendMode: "screen",
+            marginLeft: -effectOffsetX,
+            marginTop: -effectOffsetY,
           }}
         />
       </div>
@@ -113,18 +143,32 @@ const MainCanvas = ({
     const stage = stageRef.current;
     if (!stage) return;
 
+    // Hide transformer temporarily during export
+    const transformer = transformerRef.current;
+    const wasVisible = transformer && transformer.visible();
+
+    if (transformer) {
+      transformer.visible(false);
+      transformer.getLayer()?.batchDraw();
+    }
+
     setTimeout(() => {
       const dataURL = stage.toDataURL({
         pixelRatio: 2,
         mimeType: "image/png",
       });
 
+      if (transformer && wasVisible) {
+        transformer.visible(true);
+        transformer.getLayer()?.batchDraw();
+      }
+
       const link = document.createElement("a");
       link.download = "cinemaglow.png";
       link.href = dataURL;
-      document.body.appendChild(link); // Add to DOM
+      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link); // Remove from DOM
+      document.body.removeChild(link);
     }, 100);
   };
 
@@ -616,17 +660,15 @@ const MainCanvas = ({
     const handleMove = (e) => {
       if (!isDragging || draggedImageId === null) return;
 
-      e.preventDefault(); // Prevent scrolling on mobile
+      e.preventDefault();
 
       const canvasRect = canvasRef.current.getBoundingClientRect();
       const stageElement = stageRef.current?.getStage().container();
       const stageRect = stageElement?.getBoundingClientRect();
 
-      // Get coordinates from mouse or touch event
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-      // Calculate position relative to Stage, not container
       let newX = clientX - (stageRect?.left || 0) - dragOffset.x;
       let newY = clientY - (stageRect?.top || 0) - dragOffset.y;
 
@@ -637,7 +679,7 @@ const MainCanvas = ({
       if (effectIndex !== -1) {
         // Boundaries for effect icon
         const ef = canvasEffects[effectIndex];
-        const minMargin = 5; // Minimum margin from edges
+        const minMargin = 5;
         newX = Math.max(
           minMargin,
           Math.min(newX, canvasSize.width - ef.width - minMargin)
@@ -660,7 +702,7 @@ const MainCanvas = ({
         return;
       }
 
-      // Otherwise, it's a dragged uploaded image (HTML drag support)
+      // Otherwise, it's a dragged uploaded image
       const currentImage = draggedImages.find(
         (img) => img.originalIndex === draggedImageId
       );
@@ -670,6 +712,7 @@ const MainCanvas = ({
       newX = Math.max(0, Math.min(newX, canvasSize.width - imageWidth));
       newY = Math.max(0, Math.min(newY, canvasSize.height - imageHeight));
 
+      // Update image position
       setDraggedImages((prevImages) =>
         prevImages.map((img) =>
           img.originalIndex === draggedImageId
@@ -1133,13 +1176,20 @@ const MainCanvas = ({
                       targetImageId: actualIndex,
                     });
                   }}
-                  stroke={isSelected ? "#4f46e5" : undefined}
-                  strokeWidth={isSelected ? 3 : 0}
                   draggable={
                     !konvaImages.find((img) => img.id === actualIndex)?.locked
                   }
                   onDragMove={(e) => {
                     const node = e.target;
+                    const newX = node.x();
+                    const newY = node.y();
+                    setDraggedImages((prev) =>
+                      prev.map((img) =>
+                        img.originalIndex === actualIndex
+                          ? { ...img, x: newX, y: newY }
+                          : img
+                      )
+                    );
                     const rectKonva = node.getClientRect({
                       skipTransform: false,
                     });
@@ -1475,7 +1525,7 @@ const MainCanvas = ({
         {/* Context Menu */}
         {contextMenu.visible && (
           <div
-            className="absolute bg-white rounded-sm shadow-lg border border-gray-200 py-1 min-w-[140px] z-[9999]"
+            className="absolute bg-white rounded-sm shadow-lg border border-gray-200 py-1 min-w-[10px] z-[9999]"
             style={{
               left: contextMenu.x,
               top: contextMenu.y,
