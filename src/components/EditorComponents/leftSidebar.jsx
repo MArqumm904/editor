@@ -1,24 +1,114 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import overlayImage from "../../assets/images/overlay.png";
 import skewImage from "../../assets/images/skew.png";
-import ColorMatchImage from "../../assets/images/color_match.png";
-import { Plus, Eraser, ZoomIn } from "lucide-react";
+import { Plus, Eraser, ZoomIn, ZoomOut, X } from "lucide-react";
 import { useRef } from "react";
 
-const LeftSidebar = ({ isMobile = false, onMediaUpload }) => {
+const LeftSidebar = ({ isMobile = false, onMediaUpload, activeTool, onToolSelect }) => {
+  const [isWarpActive, setIsWarpActive] = useState(false);
+  const [showZoomOptions, setShowZoomOptions] = useState(false);
+  const [zoomMode, setZoomMode] = useState(null); // 'zoom-in' or 'zoom-out'
+
+  const handleOverlayClick = () => {
+    if (onToolSelect) {
+      onToolSelect("Overlay");
+    }
+    // Dispatch tool change event to deactivate zoom
+    window.dispatchEvent(new CustomEvent("toolChanged", { detail: { tool: "Overlay" } }));
+  };
+
+  const handleZoomClick = () => {
+    setShowZoomOptions(!showZoomOptions);
+    if (zoomMode) {
+      setZoomMode(null);
+      if (onToolSelect) {
+        onToolSelect(null);
+      }
+      // Dispatch zoom mode change event to clear zoom mode
+      window.dispatchEvent(new CustomEvent("zoomModeChanged", { detail: { mode: null } }));
+    }
+  };
+
+  const handleZoomIn = () => {
+    setZoomMode('zoom-in');
+    setShowZoomOptions(false);
+    if (onToolSelect) {
+      onToolSelect("ZoomIn");
+    }
+    // Dispatch zoom mode change event
+    window.dispatchEvent(new CustomEvent("zoomModeChanged", { detail: { mode: "ZoomIn" } }));
+  };
+
+  const handleZoomOut = () => {
+    setZoomMode('zoom-out');
+    setShowZoomOptions(false);
+    if (onToolSelect) {
+      onToolSelect("ZoomOut");
+    }
+    // Dispatch zoom mode change event
+    window.dispatchEvent(new CustomEvent("zoomModeChanged", { detail: { mode: "ZoomOut" } }));
+  };
+
+  useEffect(() => {
+    const handler = (e) => setIsWarpActive(!!e.detail?.active);
+    window.addEventListener("warpModeChanged", handler);
+    return () => window.removeEventListener("warpModeChanged", handler);
+  }, []);
+
+  // Close zoom options when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showZoomOptions && !event.target.closest('.zoom-container')) {
+        setShowZoomOptions(false);
+      }
+    };
+
+    if (showZoomOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showZoomOptions]);
+
+  // Listen for tool changes to deactivate zoom mode
+  useEffect(() => {
+    const handleToolChange = (e) => {
+      const tool = e.detail?.tool;
+      if (tool && tool !== 'ZoomIn' && tool !== 'ZoomOut') {
+        setZoomMode(null);
+        setShowZoomOptions(false);
+      }
+    };
+
+    window.addEventListener("toolChanged", handleToolChange);
+    return () => window.removeEventListener("toolChanged", handleToolChange);
+  }, []);
+
+  // Listen for zoom mode changes from MainCanvas
+  useEffect(() => {
+    const handleZoomModeChange = (e) => {
+      if (e.detail?.mode === null) {
+        setZoomMode(null);
+        setShowZoomOptions(false);
+      }
+    };
+
+    window.addEventListener("zoomModeChanged", handleZoomModeChange);
+    return () => window.removeEventListener("zoomModeChanged", handleZoomModeChange);
+  }, []);
   const tools = [
     { icon: Plus, name: "Add", color: "text-white" },
-    { image: overlayImage, name: "Overlay" },
+    { image: overlayImage, name: "Overlay", onClick: handleOverlayClick },
     { image: skewImage, name: "Skew" },
     { icon: Eraser, name: "Eraser", color: "text-white" },
-    { image: ColorMatchImage, name: "Color Match" },
-    { icon: ZoomIn, name: "Zoom", color: "text-white" },
+    { icon: ZoomIn, name: "Zoom", color: "text-white", onClick: handleZoomClick, isZoom: true },
   ];
 
   const fileInputRef = useRef(null);
 
   const handleClickUpload = () => {
     fileInputRef.current?.click();
+    // Dispatch tool change event to deactivate zoom
+    window.dispatchEvent(new CustomEvent("toolChanged", { detail: { tool: "Add" } }));
   };
 
   const handleFileInputChange = (e) => {
@@ -46,25 +136,49 @@ const LeftSidebar = ({ isMobile = false, onMediaUpload }) => {
         <h2 className="text-white text-lg font-bold mb-4">Tools</h2>
         <div className="grid grid-cols-3 gap-4">
           {tools.map((tool, index) => (
-            <div
-              key={index}
-              className="flex flex-col items-center space-y-2 p-4 bg-[#1a1a2e] rounded-xl hover:bg-[#222232] transition-colors cursor-pointer"
-            >
+            <div key={index} className={`relative ${tool.isZoom ? 'zoom-container' : ''}`}>
               <div
-                className="w-12 h-12 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors"
-                onClick={tool.name === "Add" ? handleClickUpload : undefined}
+                className={`flex flex-col items-center space-y-2 p-4 bg-[#1a1a2e] rounded-xl hover:bg-[#222232] transition-colors cursor-pointer ${activeTool === tool.name ? "ring-2 ring-white" : ""
+                  }`}
               >
-                {tool.icon ? (
-                  <tool.icon
-                    className={`w-6 h-6 ${tool.color || "text-white"}`}
-                  />
-                ) : (
-                  <img src={tool.image} alt={tool.name} className="w-6 h-6" />
-                )}
+                <div
+                  className="w-12 h-12 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors"
+                  onClick={tool.name === "Add" ? handleClickUpload : tool.onClick}
+                >
+                  {tool.icon ? (
+                    <tool.icon
+                      className={`w-6 h-6 ${tool.color || "text-white"}`}
+                    />
+                  ) : (
+                    <img src={tool.image} alt={tool.name} className="w-6 h-6" />
+                  )}
+                </div>
+                <span className="text-white text-xs font-medium text-center">
+                  {tool.name}
+                </span>
               </div>
-              <span className="text-white text-xs font-medium text-center">
-                {tool.name}
-              </span>
+
+              {/* Zoom Options for Mobile */}
+              {tool.isZoom && showZoomOptions && (
+                <div className="absolute top-full left-0 mt-2 bg-[#1a1a2e] rounded-lg shadow-lg border border-gray-600 p-2 z-50 w-full">
+                  <div className="flex flex-col space-y-2">
+                    <button
+                      className="flex items-center space-x-2 px-3 py-2 text-white hover:bg-[#2a2a3e] rounded transition-colors"
+                      onClick={handleZoomIn}
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                      <span className="text-sm">Zoom In</span>
+                    </button>
+                    <button
+                      className="flex items-center space-x-2 px-3 py-2 text-white hover:bg-[#2a2a3e] rounded transition-colors"
+                      onClick={handleZoomOut}
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                      <span className="text-sm">Zoom Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -93,20 +207,64 @@ const LeftSidebar = ({ isMobile = false, onMediaUpload }) => {
 
       {/* Navigation icons */}
       <div className="flex flex-col items-center space-y-3">
-        <div className="w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer">
+        <div
+          className={`w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer ${activeTool === "Overlay" ? "ring-2 ring-white" : ""
+            }`}
+          onClick={handleOverlayClick}
+        >
           <img src={overlayImage} alt="" className="w-5 h-5" />
         </div>
-        <div className="w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer">
+        <div
+          className={`w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer ${isWarpActive ? "ring-2 ring-white" : ""
+            }`}
+          onClick={() => {
+            window.dispatchEvent(new Event("enterWarpTransform"));
+            // Dispatch tool change event to deactivate zoom
+            window.dispatchEvent(new CustomEvent("toolChanged", { detail: { tool: "Skew" } }));
+          }}
+        >
           <img src={skewImage} alt="" className="w-5 h-5" />
         </div>
-        <div className="w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer">
+        <div
+          className="w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer"
+          // Find the eraser div and update its onClick:
+          onClick={() => {
+            window.dispatchEvent(new Event("enterEraserMode"));
+            // Dispatch tool change event to deactivate zoom
+            window.dispatchEvent(new CustomEvent("toolChanged", { detail: { tool: "Eraser" } }));
+          }}
+        >
           <Eraser className="w-5 h-5 text-white" />
         </div>
-        <div className="w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer">
-          <img src={ColorMatchImage} alt="" className="w-5 h-5" />
-        </div>
-        <div className="w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer">
-          <ZoomIn className="w-5 h-5 text-white" />
+        <div className="relative zoom-container">
+          <div
+            className={`w-10 h-10 bg-[#8088e2] rounded-lg flex items-center justify-center hover:bg-[#717add] transition-colors cursor-pointer ${zoomMode ? "ring-2 ring-white" : ""}`}
+            onClick={handleZoomClick}
+          >
+            <ZoomIn className="w-5 h-5 text-white" />
+          </div>
+
+          {/* Zoom Options Dropdown */}
+          {showZoomOptions && (
+            <div className="absolute left-12 top-0 bg-[#1a1a2e] rounded-lg shadow-lg border border-gray-600 p-2 z-50">
+              <div className="flex flex-col space-y-2">
+                <button
+                  className="flex items-center space-x-2 px-3 py-2 text-white hover:bg-[#2a2a3e] rounded transition-colors"
+                  onClick={handleZoomIn}
+                >
+                  <ZoomIn className="w-4 h-4" />
+                  <span className="text-sm">Zoom In</span>
+                </button>
+                <button
+                  className="flex items-center space-x-2 px-3 py-2 text-white hover:bg-[#2a2a3e] rounded transition-colors"
+                  onClick={handleZoomOut}
+                >
+                  <ZoomOut className="w-4 h-4" />
+                  <span className="text-sm">Zoom Out</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <input

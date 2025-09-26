@@ -14,6 +14,9 @@ const Create = () => {
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState("canvas");
   const [activeEffect, setActiveEffect] = useState(null);
+  const [activeTool, setActiveTool] = useState(null);
+  // 2. New state add karein activeTab ke liye
+  const [activeTab, setActiveTab] = useState("Upload");
 
   const handleMediaUpload = (files) => {
     try {
@@ -46,6 +49,25 @@ const Create = () => {
     }
   };
 
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+    // Agar manually tab change kia hai to tool ko deactivate kar do
+    if (activeTool && tabName !== "Layer") {
+      setActiveTool(null);
+    }
+    // Agar Upload tab par gaye hain to bhi tool deactivate kar do
+    if (tabName === "Upload") {
+      setActiveTool(null);
+    }
+  };
+
+  const handleToolSelect = (toolName) => {
+    setActiveTool(toolName);
+    if (toolName === "Overlay") {
+      setActiveTab("Layer"); // Automatically switch to Layer tab
+    }
+  };
+
   // Create.jsx me ye function add karein
   const handleExport = (format, settings) => {
     if (format === "image") {
@@ -73,7 +95,7 @@ const Create = () => {
   };
 
   // 🔥 KEY CHANGE: Handle effect selection for mobile
-  const handleEffectSelect = (effect) => {
+  const handleEffectSelect = (effect, selectedIndex) => {
     setActiveEffect(effect);
     // Auto-switch to canvas after selecting effect on mobile
     if (window.innerWidth < 768) {
@@ -101,12 +123,18 @@ const Create = () => {
     <div className="h-screen bg-black">
       {/* Desktop Layout */}
       <div className="hidden md:flex h-full">
-        <LeftSidebar onMediaUpload={handleMediaUpload} />
+        <LeftSidebar
+          onMediaUpload={handleMediaUpload}
+          activeTool={activeTool}
+          onToolSelect={handleToolSelect}
+        />
         <SecondSidebar
           onMediaUpload={handleMediaUpload}
           uploadedMedia={uploadedMedia}
           onMediaSelect={handleMediaSelect}
           onMediaReorder={handleMediaReorder}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
         />
         <MainCanvas
           uploadedMedia={uploadedMedia}
@@ -119,6 +147,7 @@ const Create = () => {
         <RightSidebar
           onExport={handleExport}
           onEffectSelect={handleEffectSelect}
+          selectedMediaIndex={selectedMediaIndex}
         />
       </div>
 
@@ -136,7 +165,11 @@ const Create = () => {
         <div className="flex-1 overflow-hidden">
           {activeMobilePanel === "tools" && (
             <div className="h-full p-4 bg-[#121018]">
-              <LeftSidebar onMediaUpload={handleMediaUpload} />
+              <LeftSidebar
+                onMediaUpload={handleMediaUpload}
+                activeTool={activeTool}
+                onToolSelect={handleToolSelect}
+              />
             </div>
           )}
 
@@ -147,6 +180,8 @@ const Create = () => {
                 uploadedMedia={uploadedMedia}
                 onMediaSelect={handleMediaSelect}
                 onMediaReorder={handleMediaReorder}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
                 isMobile={true}
               />
             </div>
@@ -161,6 +196,12 @@ const Create = () => {
                 onMediaReorder={handleMediaReorder}
                 activeEffect={activeEffect} // 🔥 KEY CHANGE: Pass activeEffect to mobile canvas
                 isMobile={true}
+              />
+              <RightSidebar
+                isMobile={true}
+                onExport={handleExport}
+                onEffectSelect={handleEffectSelect}
+                selectedMediaIndex={selectedMediaIndex}
               />
             </div>
           )}

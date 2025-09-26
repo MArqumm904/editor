@@ -1,5 +1,5 @@
 // src/components/EditorComponents/RightPanel.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -8,18 +8,67 @@ import {
 } from "lucide-react";
 import Gif from "../../assets/images/rain_gif.gif";
 
-const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
+// Import images for categoryData
+import fire1 from "../../assets/images/fire-1.jpg";
+import fire2 from "../../assets/images/fire-2.jpg";
+import fire3 from "../../assets/images/fire-3.jpg";
+import fire4 from "../../assets/images/fire-4.jpg";
+import fire5 from "../../assets/images/fire-5.jpg";
+import fire6 from "../../assets/images/fire-6.jpg";
+
+import flower1 from "../../assets/images/floral-1.jpg";
+import flower2 from "../../assets/images/floral-2.jpg";
+import flower3 from "../../assets/images/floral-3.jpg";
+import flower4 from "../../assets/images/floral-4.jpg";
+import flower5 from "../../assets/images/floral-5.jpg";
+import flower6 from "../../assets/images/floral-6.jpg";
+
+import sparkles1 from "../../assets/images/sparkles-1.jpg";
+import sparkles2 from "../../assets/images/sparkles-2.jpg";
+import sparkles3 from "../../assets/images/sparkles-3.jpg";
+import sparkles4 from "../../assets/images/sparkles-4.png";
+import sparkles5 from "../../assets/images/sparkles-5.jpg";
+import sparkles6 from "../../assets/images/sparkles-6.jpg";
+
+import nature1 from "../../assets/images/nature-1.jpg";
+import nature2 from "../../assets/images/nature-2.jpg";
+import nature3 from "../../assets/images/nature-3.jpg";
+import nature4 from "../../assets/images/nature-4.png";
+import nature5 from "../../assets/images/nature-5.png";
+import nature6 from "../../assets/images/nature-6.jpg";
+
+import abstract1 from "../../assets/images/abstract-1.jpg";
+import abstract2 from "../../assets/images/abstract-2.jpg";
+import abstract3 from "../../assets/images/abstract-3.jpg";
+import abstract4 from "../../assets/images/abstract-4.jpg";
+import abstract5 from "../../assets/images/abstract-5.jpg";
+import abstract6 from "../../assets/images/abstract-6.jpg";
+
+const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaIndex }) => {
   const [isAnimationOpen, setIsAnimationOpen] = useState(false);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(0);
   const [selectedAnimationCategory, setSelectedAnimationCategory] = useState(0);
-
   const [selectedAspectRatio, setSelectedAspectRatio] = useState("original");
   const [selectedResolution, setSelectedResolution] = useState("high");
   const [selectedFormat, setSelectedFormat] = useState("video");
   const [duration, setDuration] = useState("10 Seconds");
   const [includeInGallery, setIncludeInGallery] = useState(false);
+
+  useEffect(() => {
+    const durationInMs = parseInt(duration.split(' ')[0]) * 1000;
+    window.selectedDuration = durationInMs;
+  }, [duration]);
+  useEffect(() => {
+    const handleDurationRequest = () => {
+      const durationInMs = parseInt(duration.split(' ')[0]) * 1000;
+      window.selectedDuration = durationInMs;
+    };
+
+    window.addEventListener('getDuration', handleDurationRequest);
+    return () => window.removeEventListener('getDuration', handleDurationRequest);
+  }, [duration]);
 
   const toggleAnimation = () => {
     if (isAnimationOpen) {
@@ -151,77 +200,66 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
     },
   ];
 
+  // Use images instead of icons in categoryData
   const categoryData = [
     {
       name: "Fire",
-      icon: "🔥",
+      icon: fire1,
       items: [
-        { icon: "🔥", name: "Flame 1" },
-        { icon: "🔥", name: "Flame 2" },
-        { icon: "🔥", name: "Flame 3" },
-        { icon: "🔥", name: "Flame 4" },
-        { icon: "🔥", name: "Flame 5" },
-        { icon: "🔥", name: "Flame 6" },
+        { icon: fire1, name: "Flame 1" },
+        { icon: fire2, name: "Flame 2" },
+        { icon: fire3, name: "Flame 3" },
+        { icon: fire4, name: "Flame 4" },
+        { icon: fire5, name: "Flame 5" },
+        { icon: fire6, name: "Flame 6" },
       ],
     },
     {
       name: "Floral",
-      icon: "🌸",
+      icon: flower1,
       items: [
-        { icon: "🌸", name: "Flower 1" },
-        { icon: "🌸", name: "Flower 2" },
-        { icon: "🌸", name: "Flower 3" },
-        { icon: "🌸", name: "Flower 4" },
-        { icon: "🌸", name: "Flower 5" },
-        { icon: "🌸", name: "Flower 6" },
+        { icon: flower1, name: "Flower 1" },
+        { icon: flower2, name: "Flower 2" },
+        { icon: flower3, name: "Flower 3" },
+        { icon: flower4, name: "Flower 4" },
+        { icon: flower5, name: "Flower 5" },
+        { icon: flower6, name: "Flower 6" },
       ],
     },
     {
       name: "Sparkles",
-      icon: "✨",
+      icon: sparkles1,
       items: [
-        { icon: "✨", name: "Sparkle 1" },
-        { icon: "✨", name: "Sparkle 2" },
-        { icon: "✨", name: "Sparkle 3" },
-        { icon: "✨", name: "Sparkle 4" },
-        { icon: "✨", name: "Sparkle 5" },
-        { icon: "✨", name: "Sparkle 6" },
+        { icon: sparkles1, name: "Sparkle 1" },
+        { icon: sparkles2, name: "Sparkle 2" },
+        { icon: sparkles3, name: "Sparkle 3" },
+        { icon: sparkles4, name: "Sparkle 4" },
+        { icon: sparkles5, name: "Sparkle 5" },
+        { icon: sparkles6, name: "Sparkle 6" },
       ],
     },
     {
       name: "Nature",
-      icon: "🌿",
+      icon: nature1,
       items: [
-        { icon: "🌿", name: "Leaf 1" },
-        { icon: "🌿", name: "Leaf 2" },
-        { icon: "🌿", name: "Leaf 3" },
-        { icon: "🌿", name: "Leaf 4" },
-        { icon: "🌿", name: "Leaf 5" },
-        { icon: "🌿", name: "Leaf 6" },
+        { icon: nature1, name: "Leaf 1" },
+        { icon: nature2, name: "Leaf 2" },
+        { icon: nature3, name: "Leaf 3" },
+        { icon: nature4, name: "Leaf 4" },
+        { icon: nature5, name: "Leaf 5" },
+        { icon: nature6, name: "Leaf 6" },
       ],
     },
     {
       name: "Abstract",
-      icon: "🎨",
+      icon: abstract1,
       items: [
-        { icon: "🎨", name: "Abstract 1" },
-        { icon: "🎨", name: "Abstract 2" },
-        { icon: "🎨", name: "Abstract 3" },
-        { icon: "🎨", name: "Abstract 4" },
-        { icon: "🎨", name: "Abstract 5" },
-        { icon: "🎨", name: "Abstract 6" },
-      ],
-    },
-    {
-      name: "Geometric",
-      icon: "🔷",
-      items: [
-        { icon: "🔷", name: "Shape 1" },
-        { icon: "🔷", name: "Shape 2" },
-        { icon: "🔷", name: "Shape 3" },
-        { icon: "🔷", name: "Shape 4" },
-        { icon: "🔷", name: "Shape 5" },
-        { icon: "🔷", name: "Shape 6" },
+        { icon: abstract1, name: "Abstract 1" },
+        { icon: abstract2, name: "Abstract 2" },
+        { icon: abstract3, name: "Abstract 3" },
+        { icon: abstract4, name: "Abstract 4" },
+        { icon: abstract5, name: "Abstract 5" },
+        { icon: abstract6, name: "Abstract 6" },
       ],
     },
   ];
@@ -229,9 +267,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
   const renderAnimationCategoryTabs = () => {
     return (
       <div
-        className={`flex items-center space-x-2 pt-2 mb-4 ${
-          isMobile ? "relative" : ""
-        }`}
+        className={`flex items-center space-x-2 pt-2 mb-4 ${isMobile ? "relative" : ""
+          }`}
       >
         {!isMobile && (
           <button
@@ -258,11 +295,10 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
             {animationCategoryData.map((category, index) => (
               <button
                 key={index}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ease-in-out transform whitespace-nowrap flex-shrink-0 ${
-                  selectedAnimationCategory === index
-                    ? "bg-[#8088e2] text-white"
-                    : "bg-[#23232e] hover:bg-[#252530] text-white"
-                }`}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ease-in-out transform whitespace-nowrap flex-shrink-0 ${selectedAnimationCategory === index
+                  ? "bg-[#8088e2] text-white"
+                  : "bg-[#23232e] hover:bg-[#252530] text-white"
+                  }`}
                 onClick={() => setSelectedAnimationCategory(index)}
               >
                 <span className="text-base">{category.icon}</span>
@@ -298,9 +334,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
       animationCategoryData[selectedAnimationCategory];
     return (
       <div
-        className={`grid gap-2 pt-2 mb-5 ${
-          isMobile ? "grid-cols-2" : "grid-cols-3"
-        }`}
+        className={`grid gap-2 pt-2 mb-5 ${isMobile ? "grid-cols-2" : "grid-cols-3"
+          }`}
       >
         {currentAnimationCategory.items.map((item, index) => (
           <div
@@ -309,16 +344,15 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
             onClick={() => {
               // 🔥 Send effect back to Create.jsx
               if (onEffectSelect) {
-                onEffectSelect(item);
+                onEffectSelect(item, selectedMediaIndex);
               }
             }}
           >
             <img
               src={item.gif}
               alt={item.name}
-              className={`rounded-lg object-cover ${
-                isMobile ? "w-full h-20" : "w-20 h-14"
-              }`}
+              className={`rounded-lg object-cover ${isMobile ? "w-full h-20" : "w-20 h-14"
+                }`}
             />
             <div className="text-center mt-1">
               <div className="text-white text-[0.600rem] font-medium">
@@ -334,9 +368,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
   const renderCategoryTabs = () => {
     return (
       <div
-        className={`flex items-center space-x-2 pt-2 mb-4 ${
-          isMobile ? "relative" : ""
-        }`}
+        className={`flex items-center space-x-1 pt-2 mb-4 ${isMobile ? "relative" : ""
+          }`}
       >
         {!isMobile && (
           <button
@@ -363,15 +396,18 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
             {categoryData.map((category, index) => (
               <button
                 key={index}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-300 ease-in-out transform whitespace-nowrap flex-shrink-0 ${
-                  selectedCategory === index
-                    ? "bg-[#8088e2] text-white"
-                    : "bg-[#23232e] hover:bg-[#252530] text-white"
-                }`}
+                className={`flex items-center space-x-2 px-2 py-2 rounded-lg transition-all duration-300 ease-in-out transform whitespace-nowrap flex-shrink-0 ${selectedCategory === index
+                  ? "bg-[#8088e2] text-white"
+                  : "bg-[#23232e] hover:bg-[#252530] text-white"
+                  }`}
                 onClick={() => setSelectedCategory(index)}
               >
-                <span className="text-base">{category.icon}</span>
-                <span className="text-[0.750rem] font-medium">
+                <img
+                  src={category.icon}
+                  alt={category.name}
+                  className="w-6 h-6 rounded object-cover"
+                />
+                <span className="text-[0.850rem] font-medium">
                   {category.name}
                 </span>
               </button>
@@ -398,24 +434,39 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
     );
   };
 
+  // Replace the renderCategoryItems function with this updated version:
+
   const renderCategoryItems = () => {
     const currentCategory = categoryData[selectedCategory];
     return (
       <div
-        className={`grid gap-3 pt-2 ${
-          isMobile ? "grid-cols-2" : "grid-cols-3"
-        }`}
+        className={`grid gap-2 pt-2 ${isMobile ? "grid-cols-2" : "grid-cols-3"
+          }`}
       >
         {currentCategory.items.map((item, index) => (
           <div
             key={index}
-            className={`bg-white rounded-lg p-2 cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 hover:shadow-lg border border-gray-200 flex items-center justify-center ${
-              isMobile ? "min-h-[80px]" : "min-h-[60px]"
-            }`}
+            className={`bg-[#bcbfe2] rounded-lg p-2 cursor-pointer transition-all duration-200 ease-in-out transform hover:scale-105 hover:shadow-lg border border-gray-200 flex items-center justify-center ${isMobile ? "min-h-[80px]" : "min-h-[60px]"
+              }`}
+            onClick={() => {
+              // 🔥 Send image overlay back to Create.jsx (same as animation overlays)
+              if (onEffectSelect) {
+                onEffectSelect({
+                  name: item.name,
+                  gif: item.icon, // Using the image as gif/url for consistency
+                  gifUrl: item.icon, // Alternative property name
+                  url: item.icon, // Another alternative
+                }, selectedMediaIndex);
+              }
+            }}
           >
             <div className="text-center">
-              <div className={`mb-1 ${isMobile ? "text-2xl" : "text-xl"}`}>
-                {item.icon}
+              <div className="mb-1 flex justify-center">
+                <img
+                  src={item.icon}
+                  alt={item.name}
+                  className={`${isMobile ? "w-14 h-14" : "w-20 h-16"} rounded object-cover`}
+                />
               </div>
               <div className="text-[#1c1925] text-[0.600rem] font-medium">
                 {item.name}
@@ -454,11 +505,9 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
         {/* Preview Area - Changes size based on selected aspect ratio */}
         <div className="flex justify-center">
           <div
-            className={`${currentRatio.width} ${
-              currentRatio.height
-            } bg-gray-300 transition-all duration-300 ease-in-out ${
-              isMobile ? "max-w-full" : ""
-            }`}
+            className={`${currentRatio.width} ${currentRatio.height
+              } bg-gray-300 transition-all duration-300 ease-in-out ${isMobile ? "max-w-full" : ""
+              }`}
           ></div>
         </div>
 
@@ -466,9 +515,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
         <div className="space-y-2">
           <h4 className="text-white text-sm font-medium">Aspect Ratio</h4>
           <div
-            className={`flex gap-0 ${
-              isMobile ? "grid-cols-3" : "flex space-x-4"
-            }`}
+            className={`flex gap-0 ${isMobile ? "grid-cols-3" : "flex space-x-4"
+              }`}
           >
             {aspectRatios.map((ratio) => (
               <div
@@ -477,21 +525,19 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
               >
                 <button
                   onClick={() => setSelectedAspectRatio(ratio.id)}
-                  className={`transition-all duration-200 ${
-                    selectedAspectRatio === ratio.id
-                      ? "border-2 border-dashed border-[#8088e2] bg-gray-300"
-                      : "border-2 border-white bg-[#1b1b23]"
-                  } ${
-                    ratio.id === "1:1"
+                  className={`transition-all duration-200 ${selectedAspectRatio === ratio.id
+                    ? "border-2 border-dashed border-[#8088e2] bg-gray-300"
+                    : "border-2 border-white bg-[#1b1b23]"
+                    } ${ratio.id === "1:1"
                       ? "w-8 h-7"
                       : ratio.id === "9:16"
-                      ? "w-5 h-7"
-                      : ratio.id === "4:5"
-                      ? "w-6 h-7"
-                      : ratio.id === "16:9"
-                      ? "w-7 h-5"
-                      : "w-7 h-7" // Original
-                  }`}
+                        ? "w-5 h-7"
+                        : ratio.id === "4:5"
+                          ? "w-6 h-7"
+                          : ratio.id === "16:9"
+                            ? "w-7 h-5"
+                            : "w-7 h-7" // Original
+                    }`}
                 ></button>
                 <span className="text-white text-xs">{ratio.label}</span>
               </div>
@@ -507,11 +553,10 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
               <button
                 key={resolution}
                 onClick={() => setSelectedResolution(resolution.toLowerCase())}
-                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-200 ${
-                  selectedResolution === resolution.toLowerCase()
-                    ? "bg-[#8088e2] text-white"
-                    : "bg-transparent text-white hover:bg-[#2a2635]"
-                }`}
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-200 ${selectedResolution === resolution.toLowerCase()
+                  ? "bg-[#8088e2] text-white"
+                  : "bg-transparent text-white hover:bg-[#2a2635]"
+                  }`}
               >
                 {resolution}
               </button>
@@ -527,11 +572,10 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
               <button
                 key={format}
                 onClick={() => setSelectedFormat(format.toLowerCase())}
-                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-200 ${
-                  selectedFormat === format.toLowerCase()
-                    ? "bg-[#8088e2] text-white"
-                    : "bg-transparent text-white hover:bg-[#2a2635]"
-                }`}
+                className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-200 ${selectedFormat === format.toLowerCase()
+                  ? "bg-[#8088e2] text-white"
+                  : "bg-transparent text-white hover:bg-[#2a2635]"
+                  }`}
               >
                 {format}
               </button>
@@ -587,6 +631,11 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
                   resolution: selectedResolution,
                 });
               }
+            } else if (selectedFormat === "video") {
+              // Video export: Dispatch exportCanvas event for video
+              window.dispatchEvent(
+                new CustomEvent("exportCanvas", { detail: { format: "video" } })
+              );
             }
           }}
         >
@@ -598,9 +647,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
 
   return (
     <div
-      className={`rounded-lg ${
-        isMobile ? "w-full h-full p-4 overflow-y-auto" : "w-60 mx-3 my-2 mt-5"
-      }`}
+      className={`rounded-lg ${isMobile ? "w-full h-full p-4 overflow-y-auto" : "w-60 mx-3 my-2 mt-5"
+        }`}
     >
       <style jsx>{`
         .scrollbar-hide {
@@ -634,9 +682,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
           </button>
 
           <div
-            className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${
-              isAnimationOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-            }`}
+            className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${isAnimationOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+              }`}
           >
             {renderAnimationCategoryTabs()}
             <div className="transition-all duration-500 ease-in-out mb-3">
@@ -662,9 +709,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
           </button>
 
           <div
-            className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${
-              isCategoriesOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-            }`}
+            className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${isCategoriesOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+              }`}
           >
             {renderCategoryTabs()}
             <div className="transition-all duration-500 ease-in-out mb-3">
@@ -690,9 +736,8 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport }) => {
           </button>
 
           <div
-            className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${
-              isExportOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
-            }`}
+            className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${isExportOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
+              }`}
           >
             {renderExportSection()}
           </div>

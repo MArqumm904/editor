@@ -1,16 +1,31 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import GifImage from "../../assets/images/gif.png";
 import DocImage from "../../assets/images/doc.png";
 import PlayImage from "../../assets/images/play.png";
 import Dots from "../../assets/images/dots.png";
 import { ChevronDown, Image, Play, Move } from "lucide-react";
 
-const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReorder, isMobile = false }) => {
-  const [activeTab, setActiveTab] = useState("Upload");
+const SecondSidebar = ({
+  onMediaUpload,
+  uploadedMedia,
+  onMediaSelect,
+  onMediaReorder,
+  isMobile = false,
+  activeTab,
+  onTabChange
+}) => {
+  // const [activeTab, setActiveTab] = useState("Upload");
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedLayerIndex, setDraggedLayerIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    // If activeTab prop is provided, use it
+    if (activeTab && onTabChange) {
+      // activeTab already controlled by parent
+    }
+  }, [activeTab]);
 
   // Mock data for layers
   const layers = [
@@ -23,17 +38,19 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
   const handleFileUpload = (files) => {
     try {
       const fileArray = Array.from(files);
-      const mediaFiles = fileArray.filter(file => 
-        file && 
-        file.type && 
-        (file.type.startsWith('image/') || 
-         file.type.startsWith('video/') || 
-         file.type === 'image/gif')
+      const mediaFiles = fileArray.filter(file =>
+        file &&
+        file.type &&
+        (file.type.startsWith('image/') ||
+          file.type.startsWith('video/') ||
+          file.type === 'image/gif')
       );
-      
+
       if (mediaFiles.length > 0) {
         onMediaUpload(mediaFiles);
-        setActiveTab("Layer"); // Automatically switch to Layer tab
+        if (onTabChange) {
+          onTabChange("Layer"); // Automatically switch to Layer tab
+        }
       }
     } catch (error) {
       console.error("Error uploading files:", error);
@@ -88,7 +105,7 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
       const newMediaOrder = [...uploadedMedia];
       const [draggedItem] = newMediaOrder.splice(draggedLayerIndex, 1);
       newMediaOrder.splice(dropIndex, 0, draggedItem);
-      
+
       if (onMediaReorder) {
         onMediaReorder(newMediaOrder);
       }
@@ -103,11 +120,10 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
   };
 
   return (
-    <div className={`bg-[#121018] rounded-lg ${
-      isMobile 
-        ? 'w-full h-full p-4' 
-        : 'w-72 p-4 my-2'
-    }`}>
+    <div className={`bg-[#121018] rounded-lg ${isMobile
+      ? 'w-full h-full p-4'
+      : 'w-72 p-4 my-2'
+      }`}>
       {/* Header - Only show on desktop or when mobile needs it */}
       {!isMobile && (
         <h1 className="text-white text-xl font-bold mb-4">Cinemaglow</h1>
@@ -117,22 +133,20 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
       <div className="flex mb-4">
         <div className="flex bg-[#8088e2] rounded-2xl overflow-hidden p-1 w-full">
           <button
-            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
-              activeTab === "Layer"
-                ? "bg-[#fff] text-black"
-                : "text-[#ffffff] hover:text-white"
-            }`}
-            onClick={() => setActiveTab("Layer")}
+            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${activeTab === "Layer"
+              ? "bg-[#fff] text-black"
+              : "text-[#ffffff] hover:text-white"
+              }`}
+            onClick={() => onTabChange("Layer")}
           >
             Layer {uploadedMedia.length > 0 && `(${uploadedMedia.length})`}
           </button>
           <button
-            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
-              activeTab === "Upload"
-                ? "bg-[#fff] text-black"
-                : "text-[#ffffff] hover:text-white"
-            }`}
-            onClick={() => setActiveTab("Upload")}
+            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${activeTab === "Upload"
+              ? "bg-[#fff] text-black"
+              : "text-[#ffffff] hover:text-white"
+              }`}
+            onClick={() => onTabChange("Upload")}
           >
             Upload
           </button>
@@ -154,14 +168,12 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
           </div>
 
           {/* Media Import Zone */}
-          <div 
-            className={`border-2 border-dashed rounded-2xl p-8 text-center ${
-              isMobile ? 'h-[22rem]' : 'h-[33rem]'
-            } flex flex-col justify-center cursor-pointer transition-all duration-200 ${
-              isDragOver 
-                ? "border-[#8088e2] bg-[#1a1a2e] scale-105" 
+          <div
+            className={`border-2 border-dashed rounded-2xl p-8 text-center ${isMobile ? 'h-[22rem]' : 'h-[33rem]'
+              } flex flex-col justify-center cursor-pointer transition-all duration-200 ${isDragOver
+                ? "border-[#8088e2] bg-[#1a1a2e] scale-105"
                 : "border-white hover:border-[#8088e2] hover:bg-[#1a1a2e]"
-            }`}
+              }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -174,16 +186,16 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
             </div>
 
             <p className="text-white text-xs mb-2">
-              {isDragOver 
-                ? "Drop your media here!" 
-                : isMobile 
+              {isDragOver
+                ? "Drop your media here!"
+                : isMobile
                   ? "Tap to Upload Media From Your Device"
                   : "Drag & Drop Media From Your Device To Import"
               }
             </p>
 
             <p className="text-white text-xs opacity-80">JPG GIF Video</p>
-            
+
             {/* Hidden file input */}
             <input
               ref={fileInputRef}
@@ -197,9 +209,8 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
         </div>
       ) : (
         /* Layer Content */
-        <div className={`max-w-full bg-[#17151d] rounded-xl p-2 ${
-          isMobile ? 'h-96' : 'h-[38rem]'
-        }`}>
+        <div className={`max-w-full bg-[#17151d] rounded-xl p-2 ${isMobile ? 'h-96' : 'h-[38rem]'
+          }`}>
           <div className="text-white text-xs opacity-70 mb-3 px-2">
             {isMobile ? "Tap to select • Long press to reorder" : "💡 Drag layers to reorder them. Higher numbers appear on top."}
           </div>
@@ -208,14 +219,12 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
               uploadedMedia.map((media, index) => (
                 <div
                   key={index}
-                  className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                    onMediaSelect && uploadedMedia && uploadedMedia.length > 0 && index === 0
-                      ? "bg-[#8088e2] border-2 border-white"
-                      : "bg-[#1d1b23] hover:bg-[#222128]"
-                  } ${draggedLayerIndex === index ? 'opacity-50 scale-95' : ''} ${
-                    dragOverIndex === index && draggedLayerIndex !== null && draggedLayerIndex !== index
+                  className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer ${onMediaSelect && uploadedMedia && uploadedMedia.length > 0 && index === 0
+                    ? "bg-[#8088e2] border-2 border-white"
+                    : "bg-[#1d1b23] hover:bg-[#222128]"
+                    } ${draggedLayerIndex === index ? 'opacity-50 scale-95' : ''} ${dragOverIndex === index && draggedLayerIndex !== null && draggedLayerIndex !== index
                       ? 'border-2 border-[#8088e2] bg-[#2a2830]' : ''
-                  }`}
+                    }`}
                   onClick={() => onMediaSelect(index)}
                   {...(!isMobile && {
                     draggable: true,
@@ -234,9 +243,8 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   )}
 
                   {/* Thumbnail */}
-                  <div className={`${
-                    isMobile ? 'w-12 h-12' : 'w-10 h-12'
-                  } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
+                  <div className={`${isMobile ? 'w-12 h-12' : 'w-10 h-12'
+                    } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
                     {media && media.type && media.type.startsWith('image/') ? (
                       <img
                         src={media.preview}
@@ -255,16 +263,15 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   </div>
 
                   {/* Layer Name */}
-                  <span className={`text-white font-medium flex-1 ${
-                    isMobile ? 'text-sm' : 'text-sm'
-                  }`}>
+                  <span className={`text-white font-medium flex-1 ${isMobile ? 'text-sm' : 'text-sm'
+                    }`}>
                     {media && media.name ? (
-                      isMobile && media.name.length > 15 
-                        ? media.name.substring(0, 15) + "..." 
+                      isMobile && media.name.length > 15
+                        ? media.name.substring(0, 15) + "..."
                         : media.name
                     ) : 'Unknown Media'}
                   </span>
-                  
+
                   {/* Layer Number (Z-Index) */}
                   <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
                     <span className="text-white text-xs font-bold">{index + 1}</span>
@@ -285,9 +292,8 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   )}
 
                   {/* Thumbnail */}
-                  <div className={`${
-                    isMobile ? 'w-12 h-12' : 'w-10 h-12'
-                  } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
+                  <div className={`${isMobile ? 'w-12 h-12' : 'w-10 h-12'
+                    } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
                     <img
                       src="https://images.pexels.com/photos/23897250/pexels-photo-23897250.jpeg?_gl=1*1msubz2*_ga*OTc3NzE2NDMwLjE3NTQzMjc5MTY.*_ga_8JE65Q40S6*czE3NTUyODkxNjkkbzIkZzEkdDE3NTUyODkxOTgkajMxJGwwJGgw"
                       alt=""
@@ -295,15 +301,14 @@ const SecondSidebar = ({ onMediaUpload, uploadedMedia, onMediaSelect, onMediaReo
                   </div>
 
                   {/* Layer Name */}
-                  <span className={`text-white font-medium ${
-                    isMobile ? 'text-sm' : 'text-sm'
-                  }`}>
-                    {isMobile && layer.name.length > 15 
-                      ? layer.name.substring(0, 15) + "..." 
+                  <span className={`text-white font-medium ${isMobile ? 'text-sm' : 'text-sm'
+                    }`}>
+                    {isMobile && layer.name.length > 15
+                      ? layer.name.substring(0, 15) + "..."
                       : layer.name
                     }
                   </span>
-                  
+
                   {/* Layer Number (Z-Index) */}
                   <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
                     <span className="text-white text-xs font-bold">{layer.id}</span>

@@ -19,7 +19,9 @@ import {
   ChevronsUp,
   ChevronsDown,
   ChevronRight,
+  X,
 } from "lucide-react";
+import VideoExportLoader from "./VideoExportLoader"; // Adjust path as needed
 
 const MainCanvas = ({
   uploadedMedia,
@@ -29,10 +31,23 @@ const MainCanvas = ({
   isMobile = false,
   onRemoveMedia,
 }) => {
-  // ----- UPDATED EffectOverlay (now accepts effectUrl + target) -----
+  const getAbsXY = (node) => {
+    if (!node) return { x: 0, y: 0 };
+    // Konva compatibility (old/new)
+    const p =
+      typeof node.getAbsolutePosition === "function"
+        ? node.getAbsolutePosition()
+        : node.absolutePosition(); // getter
+    return { x: Math.round(p.x), y: Math.round(p.y) };
+  };
+
   // ----- UPDATED EffectOverlay (now accepts effectUrl + target) -----
   const EffectOverlay = ({ effectUrl, target }) => {
     if (!effectUrl || !target) return null;
+    const isStaticImage =
+      effectUrl &&
+      !effectUrl.includes(".gif") &&
+      !effectUrl.includes("giphy.com");
 
     // Calculate Stage offset within the centered container
     const containerRect = canvasRef.current?.getBoundingClientRect();
@@ -81,7 +96,7 @@ const MainCanvas = ({
           top: finalY,
           width: visibleWidth,
           height: visibleHeight,
-          opacity: 0.45,
+          opacity: isStaticImage ? 0.7 : 0.45,
           zIndex: 1000,
           overflow: "hidden",
         }}
@@ -93,7 +108,7 @@ const MainCanvas = ({
           style={{
             pointerEvents: "none",
             userSelect: "none",
-            mixBlendMode: "screen",
+            mixBlendMode: isStaticImage ? "normal" : "screen",
             marginLeft: -effectOffsetX,
             marginTop: -effectOffsetY,
           }}
@@ -104,20 +119,364 @@ const MainCanvas = ({
 
   const [draggedImages, setDraggedImages] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [draggedImageId, setDraggedImageId] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [konvaImages, setKonvaImages] = useState([]);
   const canvasRef = useRef(null);
   const stageRef = useRef();
   const transformerRef = useRef();
   const [guides, setGuides] = useState({ vertical: [], horizontal: [] });
-
-  // ----- NEW: state for small draggable effects on canvas -----
+  // === NEW: Eraser functionality ===
+  const [eraserMode, setEraserMode] = useState({
+    active: false,
+    targetId: null,
+  });
+  const [eraserBrushSize, setEraserBrushSize] = useState(20);
+  const [isErasing, setIsErasing] = useState(false);
+  const eraserCanvasRef = useRef(null);
+  const eraserCtxRef = useRef(null);
   const [canvasEffects, setCanvasEffects] = useState([]);
-  // canvasEffects: { id, gifUrl, x, y, width:130, height:130, isDragging }
+  const [showEffectHint, setShowEffectHint] = useState(false);
+  const [warpMode, setWarpMode] = useState({ active: false, targetId: null });
+  const [warpCorners, setWarpCorners] = useState([]); // [{x,y} * 4]
+  const [warpDragIndex, setWarpDragIndex] = useState(null);
+  const warpCanvasRef = useRef(null);
+  const [zoomMode, setZoomMode] = useState(null); // 'zoom-in' or 'zoom-out'
+  const [imageZoomLevels, setImageZoomLevels] = useState({}); // {imageId: {scale: 1, offsetX: 0, offsetY: 0}}
+  const [exportLoading, setExportLoading] = useState(false);
 
-  // ----- NEW: state for drag selection -----
+  const exitWarpMode = useCallback(() => {
+    setWarpMode({ active: false, targetId: null });
+    setWarpCorners([]);
+    setWarpDragIndex(null);
+  }, []);
+
+  // === NEW: Eraser mode functions ===
+  const enterEraserMode = useCallback(() => {
+    const targetId = selectedMediaIndex;
+    if (!targetId || targetId === 0) return; // must be a non-base selected image
+
+    const target = konvaImages.find((img) => img.id === targetId);
+    if (!target || !target.konvaImg) return;
+
+    setEraserMode({ active: true, targetId });
+
+    // Initialize eraser canvas on next frame to ensure DOM is ready
+    setTimeout(() => {
+      const canvas = eraserCanvasRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      canvas.width = target.width;
+      canvas.height = target.height;
+
+      // Draw the original image onto the eraser canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(target.konvaImg, 0, 0, canvas.width, canvas.height);
+
+      eraserCtxRef.current = ctx;
+    }, 0);
+  }, [selectedMediaIndex, konvaImages]);
+
+  const exitEraserMode = useCallback(() => {
+    setEraserMode({ active: false, targetId: null });
+    setIsErasing(false);
+    eraserCtxRef.current = null;
+  }, []);
+
+  const applyEraser = useCallback(() => {
+    if (!eraserMode.active || !eraserMode.targetId || !eraserCanvasRef.current)
+      return;
+
+    const canvas = eraserCanvasRef.current;
+    const dataUrl = canvas.toDataURL("image/png");
+
+    const newImg = new window.Image();
+    newImg.onload = () => {
+      // Update konvaImages with erased version
+      setKonvaImages((prev) =>
+        prev.map((img) =>
+          img.id === eraserMode.targetId ? { ...img, konvaImg: newImg } : img
+        )
+      );
+
+      // **YEH ADD KARO** - Force layer redraw
+      setTimeout(() => {
+        const stage = stageRef.current;
+        if (stage) {
+          const layer = stage.getLayers()[1]; // editable layer
+          if (layer) {
+            layer.batchDraw(); // Force redraw with new image
+          }
+        }
+      }, 100);
+
+      exitEraserMode();
+    };
+    newImg.src = dataUrl;
+  }, [eraserMode, exitEraserMode]);
+
+  const startErasing = useCallback(
+    (e) => {
+      if (!eraserMode.active || !eraserCtxRef.current) return;
+
+      setIsErasing(true);
+
+      const canvas = eraserCanvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const ctx = eraserCtxRef.current;
+
+      const getCoords = (event) => {
+        const clientX = event.touches
+          ? event.touches[0].clientX
+          : event.clientX;
+        const clientY = event.touches
+          ? event.touches[0].clientY
+          : event.clientY;
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        };
+      };
+
+      const coords = getCoords(e);
+
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(coords.x, coords.y, eraserBrushSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+    },
+    [eraserMode.active, eraserBrushSize]
+  );
+
+  const continueErasing = useCallback(
+    (e) => {
+      if (!isErasing || !eraserCtxRef.current) return;
+
+      const canvas = eraserCanvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const ctx = eraserCtxRef.current;
+
+      const getCoords = (event) => {
+        const clientX = event.touches
+          ? event.touches[0].clientX
+          : event.clientX;
+        const clientY = event.touches
+          ? event.touches[0].clientY
+          : event.clientY;
+        return {
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        };
+      };
+
+      const coords = getCoords(e);
+
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(coords.x, coords.y, eraserBrushSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+    },
+    [isErasing, eraserBrushSize]
+  );
+
+  const stopErasing = useCallback(() => {
+    setIsErasing(false);
+  }, []);
+
+  // Zoom functionality - zooms within image boundaries without changing container size
+  const handleZoomClick = useCallback(
+    (imageId, clickX, clickY) => {
+      if (!zoomMode || !selectedMediaIndex) return;
+
+      const currentZoom = imageZoomLevels[imageId] || {
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+      };
+      const zoomFactor = zoomMode === "zoom-in" ? 1.2 : 0.8;
+      const newScale = Math.max(1, Math.min(5, currentZoom.scale * zoomFactor)); // Don't go below 1
+
+      // If zoom out and already at scale 1, don't do anything
+      if (zoomMode === "zoom-out" && currentZoom.scale <= 1) return;
+
+      // Calculate the click position relative to the image
+      const image = konvaImages.find((img) => img.id === imageId);
+      if (!image || !image.konvaImg) return;
+
+      // Calculate relative position within the image (0 to 1)
+      const relativeX = (clickX - image.x) / image.width;
+      const relativeY = (clickY - image.y) / image.height;
+
+      // Calculate the source image dimensions
+      const sourceWidth = image.konvaImg.width;
+      const sourceHeight = image.konvaImg.height;
+
+      // Calculate how much the crop area should move based on the click position
+      const currentCropWidth = sourceWidth / currentZoom.scale;
+      const currentCropHeight = sourceHeight / currentZoom.scale;
+      const newCropWidth = sourceWidth / newScale;
+      const newCropHeight = sourceHeight / newScale;
+
+      // Calculate the difference in crop size
+      const cropWidthDiff = newCropWidth - currentCropWidth;
+      const cropHeightDiff = newCropHeight - currentCropHeight;
+
+      // Calculate new offset based on click position (inverted for proper direction)
+      const newOffsetX =
+        currentZoom.offsetX - (relativeX - 0.5) * cropWidthDiff;
+      const newOffsetY =
+        currentZoom.offsetY - (relativeY - 0.5) * cropHeightDiff;
+
+      setImageZoomLevels((prev) => ({
+        ...prev,
+        [imageId]: {
+          scale: newScale,
+          offsetX: newOffsetX,
+          offsetY: newOffsetY,
+        },
+      }));
+    },
+    [zoomMode, selectedMediaIndex, imageZoomLevels, konvaImages]
+  );
+
+  const exitZoomMode = useCallback(() => {
+    setZoomMode(null);
+  }, []);
+
+  const applyWarp = useCallback(() => {
+    if (!warpMode.active || warpMode.targetId == null) return;
+    const target = konvaImages.find((img) => img.id === warpMode.targetId);
+    if (!target || !target.konvaImg) return;
+
+    // Compute bounding box of the warped quad
+    const minX = Math.floor(Math.min(...warpCorners.map((c) => c.x)));
+    const minY = Math.floor(Math.min(...warpCorners.map((c) => c.y)));
+    const maxX = Math.ceil(Math.max(...warpCorners.map((c) => c.x)));
+    const maxY = Math.ceil(Math.max(...warpCorners.map((c) => c.y)));
+    const outW = Math.max(1, maxX - minX);
+    const outH = Math.max(1, maxY - minY);
+
+    const img = target.konvaImg;
+    const sx = 0,
+      sy = 0,
+      sw = img.width,
+      sh = img.height;
+
+    const off = document.createElement("canvas");
+    off.width = outW;
+    off.height = outH;
+    const ctx = off.getContext("2d");
+    ctx.clearRect(0, 0, outW, outH);
+
+    const p0 = { x: warpCorners[0].x - minX, y: warpCorners[0].y - minY };
+    const p1 = { x: warpCorners[1].x - minX, y: warpCorners[1].y - minY };
+    const p2 = { x: warpCorners[2].x - minX, y: warpCorners[2].y - minY };
+    const p3 = { x: warpCorners[3].x - minX, y: warpCorners[3].y - minY };
+
+    const drawTriangle = (pA, pB, pC, srcTri) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.lineTo(pC.x, pC.y);
+      ctx.closePath();
+      ctx.clip();
+
+      const denom =
+        srcTri[0] * (srcTri[3] - srcTri[5]) +
+        srcTri[2] * (srcTri[5] - srcTri[1]) +
+        srcTri[4] * (srcTri[1] - srcTri[3]);
+      if (denom === 0) {
+        ctx.restore();
+        return;
+      }
+
+      const a =
+        (pA.x * (srcTri[3] - srcTri[5]) +
+          pB.x * (srcTri[5] - srcTri[1]) +
+          pC.x * (srcTri[1] - srcTri[3])) /
+        denom;
+      const b =
+        (pA.x * (srcTri[4] - srcTri[2]) +
+          pB.x * (srcTri[0] - srcTri[4]) +
+          pC.x * (srcTri[2] - srcTri[0])) /
+        denom;
+      const c =
+        (pA.x * (srcTri[2] * srcTri[5] - srcTri[4] * srcTri[3]) +
+          pB.x * (srcTri[4] * srcTri[1] - srcTri[0] * srcTri[5]) +
+          pC.x * (srcTri[0] * srcTri[3] - srcTri[2] * srcTri[1])) /
+        denom;
+      const d =
+        (pA.y * (srcTri[3] - srcTri[5]) +
+          pB.y * (srcTri[5] - srcTri[1]) +
+          pC.y * (srcTri[1] - srcTri[3])) /
+        denom;
+      const e =
+        (pA.y * (srcTri[4] - srcTri[2]) +
+          pB.y * (srcTri[0] - srcTri[4]) +
+          pC.y * (srcTri[2] - srcTri[0])) /
+        denom;
+      const f =
+        (pA.y * (srcTri[2] * srcTri[5] - srcTri[4] * srcTri[3]) +
+          pB.y * (srcTri[4] * srcTri[1] - srcTri[0] * srcTri[5]) +
+          pC.y * (srcTri[0] * srcTri[3] - srcTri[2] * srcTri[1])) /
+        denom;
+
+      ctx.setTransform(a, d, b, e, c, f);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      ctx.restore();
+    };
+
+    drawTriangle(p0, p1, p2, [0, 0, sw, 0, sw, sh]);
+    drawTriangle(p0, p2, p3, [0, 0, sw, sh, 0, sh]);
+
+    const dataUrl = off.toDataURL("image/png");
+    const newImg = new window.Image();
+    newImg.onload = () => {
+      setKonvaImages((prev) =>
+        prev.map((k) =>
+          k.id === warpMode.targetId
+            ? {
+                ...k,
+                konvaImg: newImg,
+                x: minX,
+                y: minY,
+                width: outW,
+                height: outH,
+                rotation: 0,
+              }
+            : k
+        )
+      );
+
+      setDraggedImages((prev) =>
+        prev.map((d) =>
+          d.originalIndex === warpMode.targetId
+            ? { ...d, x: minX, y: minY, width: outW, height: outH, rotation: 0 }
+            : d
+        )
+      );
+
+      setSelectedMediaIndex(warpMode.targetId);
+      exitWarpMode();
+    };
+    newImg.src = dataUrl;
+  }, [warpMode, warpCorners, konvaImages, exitWarpMode, setSelectedMediaIndex]);
+
+  // Enter eraser mode from external trigger (e.g., LeftSidebar Eraser icon)
+  useEffect(() => {
+    const handleEnterEraser = () => {
+      if (eraserMode.active) return;
+      enterEraserMode();
+    };
+
+    window.addEventListener("enterEraserMode", handleEnterEraser);
+    return () =>
+      window.removeEventListener("enterEraserMode", handleEnterEraser);
+  }, [eraserMode.active, enterEraserMode]);
+
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRect, setSelectionRect] = useState({
     x: 0,
@@ -129,7 +488,6 @@ const MainCanvas = ({
   const [groupedImages, setGroupedImages] = useState([]);
   const groupRef = useRef();
 
-  // ----- NEW: Context menu state -----
   const [contextMenu, setContextMenu] = useState({
     visible: false,
     x: 0,
@@ -139,11 +497,589 @@ const MainCanvas = ({
 
   const lastActiveEffectRef = useRef(null);
 
-  const exportCanvasAsImage = () => {
+  // --- VIDEO EXPORT FUNCTION ---
+  // === Data URL helpers (put at module scope) ===
+  const isDataUrl = (s) => typeof s === "string" && s.startsWith("data:");
+  const isBlobUrl = (s) => typeof s === "string" && s.startsWith("blob:");
+
+  const blobToDataURL = (blob) =>
+    new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+
+  const estimateSizeFromDataURL = (dataUrl) => {
+    const i = dataUrl.indexOf(",");
+    if (i === -1) return 0;
+    const base64 = dataUrl.slice(i + 1);
+    return Math.floor((base64.length * 3) / 4);
+  };
+
+  async function urlToDataPayload(url) {
+    if (!url) return { dataUrl: null, size: 0, type: "", success: false };
+
+    if (isDataUrl(url)) {
+      return {
+        dataUrl: url,
+        size: estimateSizeFromDataURL(url),
+        type: "",
+        success: true,
+      };
+    }
+
+    if (isBlobUrl(url)) {
+      try {
+        console.log(`Converting blob URL: ${url}`);
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.warn(`Failed to fetch blob ${url}: ${resp.status}`);
+          return { dataUrl: null, size: 0, type: "", success: false };
+        }
+        const blob = await resp.blob();
+        const dataUrl = await blobToDataURL(blob);
+        console.log(
+          `Successfully converted blob URL to data URL (size: ${blob.size})`
+        );
+        return {
+          dataUrl,
+          size: blob.size,
+          type: blob.type || "",
+          success: true,
+        };
+      } catch (error) {
+        console.error(`Error converting blob URL ${url}:`, error);
+        return { dataUrl: null, size: 0, type: "", success: false };
+      }
+    }
+
+    // Handle HTTP/HTTPS URLs
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.warn(`Failed to fetch ${url}: ${resp.status}`);
+        return { dataUrl: null, size: 0, type: "", success: false };
+      }
+      const blob = await resp.blob();
+      const dataUrl = await blobToDataURL(blob);
+      return {
+        dataUrl,
+        size: blob.size,
+        type: blob.type || "",
+        success: true,
+      };
+    } catch (error) {
+      console.warn(`Error fetching ${url}:`, error.message);
+      return { dataUrl: null, size: 0, type: "", success: false };
+    }
+  }
+
+  async function convertExportUrlsToData(exportData) {
+    const tasks = [];
+    const failedConversions = [];
+
+    // Background image
+    if (exportData.backgroundImage?.media?.preview) {
+      tasks.push(
+        (async () => {
+          const p = await urlToDataPayload(
+            exportData.backgroundImage.media.preview
+          );
+          if (p.success && p.dataUrl) {
+            exportData.backgroundImage.media.preview = p.dataUrl;
+            if (!exportData.backgroundImage.media.type && p.type)
+              exportData.backgroundImage.media.type = p.type;
+            if (!exportData.backgroundImage.media.size)
+              exportData.backgroundImage.media.size = p.size;
+          } else {
+            failedConversions.push(
+              `background image: ${exportData.backgroundImage.media.preview}`
+            );
+            console.error("Failed to convert background image URL to data URL");
+          }
+        })()
+      );
+    }
+
+    // Overlay images
+    for (const img of exportData.overlayImages || []) {
+      if (img?.media?.preview) {
+        tasks.push(
+          (async () => {
+            const p = await urlToDataPayload(img.media.preview);
+            if (p.success && p.dataUrl) {
+              img.media.preview = p.dataUrl;
+              if (!img.media.type && p.type) img.media.type = p.type;
+              if (!img.media.size) img.media.size = p.size;
+            } else {
+              failedConversions.push(
+                `overlay image ${img.id}: ${img.media.preview}`
+              );
+              console.error(
+                `Failed to convert overlay image ${img.id} URL to data URL`
+              );
+            }
+          })()
+        );
+      }
+    }
+
+    // Canvas effects (gifUrl)
+    for (const eff of exportData.canvasEffects || []) {
+      if (eff?.gifUrl) {
+        tasks.push(
+          (async () => {
+            const p = await urlToDataPayload(eff.gifUrl);
+            if (p.success && p.dataUrl) {
+              eff.gifUrl = p.dataUrl;
+            } else {
+              failedConversions.push(`canvas effect ${eff.id}: ${eff.gifUrl}`);
+              console.error(
+                `Failed to convert canvas effect ${eff.id} URL to data URL`
+              );
+              // Mark for removal
+              eff._shouldRemove = true;
+            }
+          })()
+        );
+      }
+    }
+
+    // Image effects (effectUrl)
+    for (const ie of exportData.imageEffects || []) {
+      if (ie?.effectUrl) {
+        tasks.push(
+          (async () => {
+            const p = await urlToDataPayload(ie.effectUrl);
+            if (p.success && p.dataUrl) {
+              ie.effectUrl = p.dataUrl;
+            } else {
+              failedConversions.push(
+                `image effect ${ie.targetImageId}: ${ie.effectUrl}`
+              );
+              console.error(
+                `Failed to convert image effect ${ie.targetImageId} URL to data URL`
+              );
+              // Mark for removal
+              ie._shouldRemove = true;
+            }
+          })()
+        );
+      }
+    }
+
+    await Promise.all(tasks);
+
+    // Remove failed conversions
+    exportData.canvasEffects = (exportData.canvasEffects || []).filter(
+      (eff) => !eff._shouldRemove
+    );
+    exportData.imageEffects = (exportData.imageEffects || []).filter(
+      (ie) => !ie._shouldRemove
+    );
+
+    // Log failed conversions
+    if (failedConversions.length > 0) {
+      console.warn("Failed to convert the following URLs:", failedConversions);
+    }
+
+    return exportData;
+  }
+
+  const getDurationInMs = () => {
+    const durationEvent = new CustomEvent("getDuration");
+    window.dispatchEvent(durationEvent);
+    return window.selectedDuration || 5000;
+  };
+
+  const exportCanvasAsVideo = async () => {
+    const stage = stageRef.current;
+    if (!stage) {
+      console.error("Stage not available");
+      return;
+    }
+
+    setExportLoading(true);
+
+    try {
+      const exportData = {
+        canvasSize: {
+          width: canvasSize.width,
+          height: canvasSize.height,
+        },
+        backgroundImage: konvaImages[0]
+          ? {
+              id: konvaImages[0].id,
+              media: {
+                name: konvaImages[0].media?.name || "background",
+                type: konvaImages[0].media?.type || "image/jpeg",
+                preview: konvaImages[0].media?.preview,
+                size: konvaImages[0].media?.size || 0,
+              },
+              position: {
+                x: konvaImages[0].x || 0,
+                y: konvaImages[0].y || 0,
+              },
+              dimensions: {
+                width: konvaImages[0].width,
+                height: konvaImages[0].height,
+              },
+              rotation: konvaImages[0].rotation || 0,
+            }
+          : null,
+        overlayImages: konvaImages.slice(1).map((img, index) => {
+          const draggedImg = draggedImages.find(
+            (d) => d.originalIndex === img.id
+          );
+          let pos = { x: img.x, y: img.y };
+          try {
+            const stage = stageRef.current;
+            const layer = stage?.getLayers()[1];
+            const node = layer?.findOne(`#image-${img.id}`);
+            if (node) pos = getAbsXY(node);
+          } catch (_) {}
+
+          return {
+            id: img.id,
+            originalIndex: img.id,
+            layerIndex: index + 1, // Layer order
+            media: {
+              name: img.media?.name || `image-${img.id}`,
+              type: img.media?.type || "image/jpeg",
+              preview: img.media?.preview,
+              size: img.media?.size || 0,
+            },
+            position: pos,
+            dimensions: {
+              width: img.width,
+              height: img.height,
+            },
+            rotation: img.rotation || 0,
+            transform: {
+              scaleX: 1,
+              scaleY: 1,
+            },
+            zoom: imageZoomLevels[img.id] || {
+              scale: 1,
+              offsetX: 0,
+              offsetY: 0,
+            },
+            appliedEffect: draggedImg?.appliedEffect || null,
+            locked: img.locked || false,
+          };
+        }),
+        canvasEffects: canvasEffects.map((effect) => ({
+          id: effect.id,
+          gifUrl: effect.gifUrl,
+          position: {
+            x: effect.x,
+            y: effect.y,
+          },
+          dimensions: {
+            width: effect.width,
+            height: effect.height,
+          },
+          isDragging: effect.isDragging,
+        })),
+        imageEffects: draggedImages
+          .filter((img) => img.appliedEffect)
+          .map((img) => {
+            const konvaImg = konvaImages.find(
+              (k) => k.id === img.originalIndex
+            );
+            const isStaticImage =
+              img.appliedEffect &&
+              !img.appliedEffect.includes(".gif") &&
+              !img.appliedEffect.includes("giphy.com");
+
+            return {
+              targetImageId: img.originalIndex,
+              effectUrl: img.appliedEffect,
+              isStaticImage: isStaticImage,
+              targetPosition: {
+                x: img.x,
+                y: img.y,
+              },
+              targetDimensions: {
+                width: img.width,
+                height: img.height,
+              },
+              targetRotation: img.rotation || 0,
+              effectPosition: {
+                x: img.x,
+                y: img.y,
+              },
+              visibleArea: {
+                width: Math.min(
+                  img.width,
+                  canvasSize.width - Math.max(0, img.x),
+                  Math.max(0, img.x + img.width) - Math.max(0, img.x)
+                ),
+                height: Math.min(
+                  img.height,
+                  canvasSize.height - Math.max(0, img.y),
+                  Math.max(0, img.y + img.height) - Math.max(0, img.y)
+                ),
+              },
+              cropOffset: {
+                x: Math.max(0, -img.x),
+                y: Math.max(0, -img.y),
+              },
+              blendMode: isStaticImage ? "normal" : "screen",
+              opacity: isStaticImage ? 0.7 : 0.45,
+            };
+          }),
+        exportSettings: {
+          format: "video",
+          duration: getDurationInMs(),
+          fps: 30,
+          quality: "high",
+          timestamp: new Date().toISOString(),
+        },
+        metadata: {
+          totalImages: konvaImages.length,
+          totalEffects:
+            canvasEffects.length +
+            draggedImages.filter((img) => img.appliedEffect).length,
+          hasAnimatedEffects:
+            draggedImages.some((img) => img.appliedEffect) ||
+            canvasEffects.length > 0,
+          canvasAspectRatio: canvasSize.width / canvasSize.height,
+        },
+      };
+
+      // Debug logging
+      draggedImages.forEach((img, index) => {
+        if (img.appliedEffect) {
+          console.log(`Image ${img.originalIndex}:`, {
+            effectUrl: img.appliedEffect,
+            isStatic:
+              !img.appliedEffect.includes(".gif") &&
+              !img.appliedEffect.includes("giphy.com"),
+          });
+        }
+      });
+
+      console.log("\n=== DOM EFFECTS DEBUG ===");
+      canvasEffects.forEach((effect) => {
+        console.log(`Canvas Effect ${effect.id}:`, {
+          gifUrl: effect.gifUrl,
+          position: { x: effect.x, y: effect.y },
+          size: { width: effect.width, height: effect.height },
+        });
+      });
+
+      console.log("Konva Image Position:", konvaImages[1]);
+      console.log("Dragged Image Position:", draggedImages[1]);
+
+      {
+        const stage = stageRef.current;
+        const layer = stage?.getLayers?.()[1];
+        const node = layer?.findOne?.("#image-1");
+        console.log("Actual Konva Node Position:", node?.position?.());
+        console.log("Absolute Position via getAbsXY:", getAbsXY?.(node));
+        console.log(
+          "Absolute Position via getAbsolutePosition:",
+          node?.getAbsolutePosition
+            ? node.getAbsolutePosition()
+            : node?.absolutePosition?.()
+        );
+      }
+
+      console.log("Export data before conversion:", exportData);
+
+      // Store original counts for comparison
+      const originalCanvasEffects = canvasEffects.length;
+      const originalImageEffects = draggedImages.filter(
+        (img) => img.appliedEffect
+      ).length;
+
+      // Convert URLs to data URLs with enhanced error handling
+      await convertExportUrlsToData(exportData);
+
+      // Validate that critical assets were converted successfully
+      if (
+        exportData.backgroundImage &&
+        exportData.backgroundImage.media.preview
+      ) {
+        if (exportData.backgroundImage.media.preview.startsWith("blob:")) {
+          throw new Error(
+            "Background image could not be converted from blob URL. Please try uploading the image again."
+          );
+        }
+        if (
+          !exportData.backgroundImage.media.preview.startsWith("data:") &&
+          !exportData.backgroundImage.media.preview.startsWith("http")
+        ) {
+          throw new Error("Background image has invalid URL format.");
+        }
+      }
+
+      // Check overlay images
+      const failedOverlays = (exportData.overlayImages || []).filter(
+        (img) =>
+          img.media.preview &&
+          (img.media.preview.startsWith("blob:") ||
+            (!img.media.preview.startsWith("data:") &&
+              !img.media.preview.startsWith("http")))
+      );
+
+      if (failedOverlays.length > 0) {
+        console.warn(
+          `${failedOverlays.length} overlay images could not be converted properly`
+        );
+        // Remove failed overlays
+        exportData.overlayImages = exportData.overlayImages.filter(
+          (img) => !failedOverlays.includes(img)
+        );
+      }
+
+      // The convertExportUrlsToData function should have already filtered out failed effects
+      // But let's do a final check and filter
+      exportData.canvasEffects = exportData.canvasEffects.filter(
+        (eff) =>
+          eff.gifUrl &&
+          !eff.gifUrl.startsWith("blob:") &&
+          (eff.gifUrl.startsWith("data:") || eff.gifUrl.startsWith("http"))
+      );
+
+      exportData.imageEffects = exportData.imageEffects.filter(
+        (ie) =>
+          ie.effectUrl &&
+          !ie.effectUrl.startsWith("blob:") &&
+          (ie.effectUrl.startsWith("data:") || ie.effectUrl.startsWith("http"))
+      );
+
+      // Update metadata to reflect actual number of effects after filtering
+      exportData.metadata.totalEffects =
+        exportData.canvasEffects.length + exportData.imageEffects.length;
+      exportData.metadata.hasAnimatedEffects =
+        exportData.canvasEffects.length > 0 ||
+        exportData.imageEffects.length > 0;
+
+      // Track filtered effects
+      const filteredCanvasEffects = exportData.canvasEffects.length;
+      const filteredImageEffects = exportData.imageEffects.length;
+
+      const effectsWereFiltered =
+        originalCanvasEffects > filteredCanvasEffects ||
+        originalImageEffects > filteredImageEffects;
+
+      if (effectsWereFiltered) {
+        console.warn(
+          `Some effects could not be converted and were excluded from export. Canvas effects: ${originalCanvasEffects} -> ${filteredCanvasEffects}, Image effects: ${originalImageEffects} -> ${filteredImageEffects}`
+        );
+      }
+
+      console.log("Export data after conversion and filtering:", exportData);
+
+      console.log("\n=== SENDING TO BACKEND ===");
+      const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/export-video`;
+      console.log("Sending request to:", apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(exportData),
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error || errorData.message) {
+            errorMessage = errorData.error || errorData.message;
+          }
+        } catch (e) {
+          // If response is not JSON, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch (e2) {
+            // Use default error message
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const result = await response.json();
+        console.log("Backend Response:", result);
+
+        if (result.success === false) {
+          throw new Error(
+            result.error || result.message || "Unknown server error"
+          );
+        }
+
+        if (result.jobId) {
+          console.log("Video generation started with job ID:", result.jobId);
+          alert(
+            "Video generation started! You will receive the download link when processing is complete."
+          );
+        }
+      } else {
+        // Handle direct video download
+        const videoBlob = await response.blob();
+        console.log("Video blob received, size:", videoBlob.size);
+
+        if (videoBlob.size === 0) {
+          throw new Error("Received empty video file from server");
+        }
+
+        const videoUrl = URL.createObjectURL(videoBlob);
+        const link = document.createElement("a");
+        link.href = videoUrl;
+        link.download = `cinemaglow-video-${Date.now()}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(videoUrl), 100);
+        console.log("Video download initiated");
+
+        // Show success message
+        let successMessage = "Video exported successfully!";
+        if (effectsWereFiltered) {
+          successMessage +=
+            " Note: Some effects could not be included due to technical limitations.";
+        }
+        alert(successMessage);
+      }
+    } catch (error) {
+      console.error("Error exporting video:", error);
+
+      // Provide more specific error messages
+      let errorMessage = "Video export failed: ";
+      if (error.message.includes("blob:")) {
+        errorMessage +=
+          "Some images or effects could not be processed. Please try re-uploading your images.";
+      } else if (error.message.includes("Server error: 500")) {
+        errorMessage +=
+          "Server processing error. Please check that all images are valid and try again.";
+      } else if (error.message.includes("Failed to fetch")) {
+        errorMessage +=
+          "Network connection error. Please check your internet connection and try again.";
+      } else {
+        errorMessage += error.message;
+      }
+
+      alert(errorMessage);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const exportCanvasAsImage = async () => {
     const stage = stageRef.current;
     if (!stage) return;
 
-    // Hide transformer temporarily during export
     const transformer = transformerRef.current;
     const wasVisible = transformer && transformer.visible();
 
@@ -152,40 +1088,177 @@ const MainCanvas = ({
       transformer.getLayer()?.batchDraw();
     }
 
-    setTimeout(() => {
-      const dataURL = stage.toDataURL({
+    try {
+      // Create a temporary canvas to combine Konva stage + HTML overlays
+      const tempCanvas = document.createElement("canvas");
+      const tempCtx = tempCanvas.getContext("2d");
+
+      // Set canvas size
+      tempCanvas.width = canvasSize.width * 2; // 2x for better quality
+      tempCanvas.height = canvasSize.height * 2;
+
+      // Scale context for high DPI
+      tempCtx.scale(2, 2);
+
+      // First, draw the Konva stage
+      const stageDataURL = stage.toDataURL({
         pixelRatio: 2,
         mimeType: "image/png",
       });
 
+      const stageImage = new Image();
+      stageImage.onload = async () => {
+        // Draw Konva stage as base
+        tempCtx.drawImage(
+          stageImage,
+          0,
+          0,
+          canvasSize.width,
+          canvasSize.height
+        );
+
+        // Now draw all the applied effects (overlays)
+        const overlayPromises = draggedImages
+          .filter((img) => img.appliedEffect)
+          .map((img) => {
+            return new Promise((resolve) => {
+              const overlayImg = new Image();
+              overlayImg.crossOrigin = "anonymous"; // Handle CORS
+              overlayImg.onload = () => {
+                const isStaticImage =
+                  img.appliedEffect &&
+                  !img.appliedEffect.includes(".gif") &&
+                  !img.appliedEffect.includes("giphy.com");
+
+                // Calculate overlay position and size
+                const effectX = img.x;
+                const effectY = img.y;
+                const effectWidth = img.width;
+                const effectHeight = img.height;
+
+                // Only draw if overlay is within canvas bounds
+                if (
+                  effectX < canvasSize.width &&
+                  effectY < canvasSize.height &&
+                  effectX + effectWidth > 0 &&
+                  effectY + effectHeight > 0
+                ) {
+                  // Calculate visible area
+                  const startX = Math.max(0, effectX);
+                  const startY = Math.max(0, effectY);
+                  const endX = Math.min(
+                    canvasSize.width,
+                    effectX + effectWidth
+                  );
+                  const endY = Math.min(
+                    canvasSize.height,
+                    effectY + effectHeight
+                  );
+                  const visibleWidth = endX - startX;
+                  const visibleHeight = endY - startY;
+
+                  if (visibleWidth > 0 && visibleHeight > 0) {
+                    // Set blend mode and opacity
+                    tempCtx.save();
+                    tempCtx.globalCompositeOperation = isStaticImage
+                      ? "source-over"
+                      : "screen";
+                    tempCtx.globalAlpha = isStaticImage ? 0.7 : 0.45;
+
+                    // Calculate source crop (if overlay extends outside canvas)
+                    const srcX = Math.max(0, -effectX);
+                    const srcY = Math.max(0, -effectY);
+                    const srcWidth = visibleWidth;
+                    const srcHeight = visibleHeight;
+
+                    tempCtx.drawImage(
+                      overlayImg,
+                      srcX,
+                      srcY,
+                      srcWidth,
+                      srcHeight, // Source crop
+                      startX,
+                      startY,
+                      visibleWidth,
+                      visibleHeight // Destination
+                    );
+
+                    tempCtx.restore();
+                  }
+                }
+                resolve();
+              };
+              overlayImg.onerror = () => resolve(); // Skip if image fails to load
+              overlayImg.src = img.appliedEffect;
+            });
+          });
+
+        // Wait for all overlays to be drawn
+        await Promise.all(overlayPromises);
+
+        // Export the final combined image
+        const finalDataURL = tempCanvas.toDataURL("image/png");
+
+        // Download the image
+        const link = document.createElement("a");
+        link.download = "cinemaglow-picture-with-overlays.png";
+        link.href = finalDataURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Restore transformer visibility
+        if (transformer && wasVisible) {
+          transformer.visible(true);
+          transformer.getLayer()?.batchDraw();
+        }
+
+        console.log("Image exported with overlays successfully");
+      };
+
+      stageImage.onerror = () => {
+        console.error("Failed to load stage image for export");
+        if (transformer && wasVisible) {
+          transformer.visible(true);
+          transformer.getLayer()?.batchDraw();
+        }
+      };
+
+      stageImage.src = stageDataURL;
+    } catch (error) {
+      console.error("Error exporting image with overlays:", error);
       if (transformer && wasVisible) {
         transformer.visible(true);
         transformer.getLayer()?.batchDraw();
       }
-
-      const link = document.createElement("a");
-      link.download = "cinemaglow.png";
-      link.href = dataURL;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }, 100);
+    }
   };
+
+  // Update the existing export event handler to support video export
+  const exportVideoRef = useRef();
+  const exportImageRef = useRef();
+
+  useEffect(() => {
+    exportVideoRef.current = exportCanvasAsVideo;
+    exportImageRef.current = exportCanvasAsImage;
+  }, [exportCanvasAsVideo, exportCanvasAsImage]);
 
   useEffect(() => {
     const handleExportEvent = (e) => {
-      if (e.detail?.format === "image" && !e.detail?.processed) {
-        e.detail.processed = true; // Mark as processed
-        exportCanvasAsImage();
+      if (e.detail?.format === "video" && !e.detail?.processed) {
+        e.detail.processed = true;
+        exportVideoRef.current?.();
+      } else if (e.detail?.format === "image" && !e.detail?.processed) {
+        e.detail.processed = true;
+        exportImageRef.current?.();
       }
     };
 
-    window.addEventListener("exportCanvas", handleExportEvent, { once: false });
-
+    window.addEventListener("exportCanvas", handleExportEvent);
     return () => {
       window.removeEventListener("exportCanvas", handleExportEvent);
     };
-  }, []);
+  }, []); // ✅ No dependencies needed here
 
   // Arrow key navigation ke liye ye useEffect add karein
   useEffect(() => {
@@ -448,14 +1521,42 @@ const MainCanvas = ({
       // already added this exact gif recently; skip
       return;
     }
-    addEffectToCanvas(activeEffect);
-    lastActiveEffectRef.current = gifUrl;
-    // reset ref after short delay so user can add same effect again if they click again
-    const t = setTimeout(() => {
-      lastActiveEffectRef.current = null;
-    }, 800);
-    return () => clearTimeout(t);
+    if (selectedMediaIndex != null && selectedMediaIndex !== 0) {
+      // Apply effect to selected image
+      setDraggedImages((prev) =>
+        prev.map((img) =>
+          img.originalIndex === selectedMediaIndex
+            ? { ...img, appliedEffect: gifUrl }
+            : img
+        )
+      );
+      setKonvaImages((prev) =>
+        prev.map((img) =>
+          img.id === selectedMediaIndex
+            ? { ...img, appliedEffect: gifUrl }
+            : img
+        )
+      );
+      lastActiveEffectRef.current = gifUrl;
+      // Optionally, clear activeEffect after applying
+      // setActiveEffect(null); // Uncomment if you want to clear after apply
+    } else {
+      addEffectToCanvas(activeEffect);
+      lastActiveEffectRef.current = gifUrl;
+      setShowEffectHint(true);
+      const t = setTimeout(() => {
+        lastActiveEffectRef.current = null;
+      }, 800);
+      return () => clearTimeout(t);
+    }
   }, [activeEffect, canvasSize]);
+
+  // Auto-hide the hint after a few seconds
+  useEffect(() => {
+    if (!showEffectHint) return;
+    const t = setTimeout(() => setShowEffectHint(false), 6000);
+    return () => clearTimeout(t);
+  }, [showEffectHint]);
 
   // Compute snapping for a rect against candidate guide positions
   const getSnapAdjustment = (rect, candidates, axis) => {
@@ -510,6 +1611,9 @@ const MainCanvas = ({
     return best;
   };
 
+  // MAIN CHANGE: Replace the useEffect that handles uploadedMedia
+  // Find this useEffect around line 400-500 and replace it:
+
   useEffect(() => {
     if (uploadedMedia && uploadedMedia.length > 0) {
       const firstImage = uploadedMedia[0];
@@ -527,98 +1631,151 @@ const MainCanvas = ({
 
           setCanvasSize({ width, height });
 
-          // Only create new draggedImages for new uploads, preserve existing positions
-          setDraggedImages((prevImages) => {
-            const newDraggedImages = uploadedMedia.map((media, index) => {
-              // Check if this image already exists in previous state
-              const existingImage = prevImages.find(
-                (img) => img.originalIndex === index
-              );
+          // UPDATED: Load all images to get their dimensions
+          const loadImageDimensions = async () => {
+            const imageDimensions = await Promise.all(
+              uploadedMedia.map((media, index) => {
+                return new Promise((resolve) => {
+                  if (media.type.startsWith("image/")) {
+                    const tempImg = new window.Image();
+                    tempImg.onload = () => {
+                      let imgWidth = tempImg.width;
+                      let imgHeight = tempImg.height;
 
-              if (existingImage) {
-                // Keep existing position and properties
-                return {
-                  ...existingImage,
-                  // Update dimensions only for base image if needed
-                  width: index === 0 ? width : existingImage.width,
-                  height: index === 0 ? height : existingImage.height,
-                };
-              } else {
-                // New image - set default position
-                return {
-                  originalIndex: index,
-                  x: index === 0 ? 0 : 50, // Base image at 0,0, others at 50,50
-                  y: index === 0 ? 0 : 50,
-                  width: index === 0 ? width : 150,
-                  height: index === 0 ? height : 150,
-                  rotation: 0,
-                };
-              }
-            });
+                      // Only resize base image, keep others at original size but scale down if too large
+                      if (index === 0) {
+                        // Base image uses canvas size
+                        resolve({ width, height });
+                      } else {
+                        // For other images, scale down only if they're too large
+                        const maxSize = 300; // Maximum size for overlay images
+                        if (imgWidth > maxSize || imgHeight > maxSize) {
+                          const scale = Math.min(
+                            maxSize / imgWidth,
+                            maxSize / imgHeight
+                          );
+                          imgWidth = Math.round(imgWidth * scale);
+                          imgHeight = Math.round(imgHeight * scale);
+                        }
+                        resolve({ width: imgWidth, height: imgHeight });
+                      }
+                    };
+                    tempImg.src = media.preview;
+                  } else {
+                    // Fallback for non-images
+                    resolve({ width: 150, height: 150 });
+                  }
+                });
+              })
+            );
 
-            return newDraggedImages;
-          });
+            // Update draggedImages with correct dimensions
+            setDraggedImages((prevImages) => {
+              const newDraggedImages = uploadedMedia.map((media, index) => {
+                const existingImage = prevImages.find(
+                  (img) => img.originalIndex === index
+                );
 
-          // Create konva images for transformer functionality
-          setKonvaImages((prevKonvaImages) => {
-            const images = uploadedMedia.map((media, idx) => {
-              // Check if this konva image already exists
-              const existingKonvaImage = prevKonvaImages.find(
-                (img) => img.id === idx
-              );
+                const dimensions = imageDimensions[index];
 
-              if (existingKonvaImage) {
-                // Keep existing konva image but update media if needed
-                return {
-                  ...existingKonvaImage,
-                  media,
-                  // Update dimensions only for base image
-                  width: idx === 0 ? width : existingKonvaImage.width,
-                  height: idx === 0 ? height : existingKonvaImage.height,
-                };
-              } else {
-                // New konva image
-                const isBase = idx === 0;
-                return {
-                  id: idx,
-                  media,
-                  konvaImg: null,
-                  x: isBase ? 0 : 50,
-                  y: isBase ? 0 : 50,
-                  width: isBase ? width : 150,
-                  height: isBase ? height : 150,
-                  rotation: 0,
-                  isDragging: false,
-                };
-              }
-            });
-
-            // Load images for new konva items only
-            images.forEach((item, i) => {
-              if (!item.konvaImg) {
-                const imgObj = new window.Image();
-                imgObj.src = item.media.preview;
-                imgObj.onload = () => {
-                  setKonvaImages((prev) => {
-                    const updated = [...prev];
-                    if (updated[i]) {
-                      updated[i].konvaImg = imgObj;
-                    }
-                    return updated;
+                if (existingImage) {
+                  return {
+                    ...existingImage,
+                    width: dimensions.width,
+                    height: dimensions.height,
+                  };
+                } else {
+                  const centerPos = (w, h) => ({
+                    x: (width - w) / 2,
+                    y: (height - h) / 2,
                   });
-                };
-              }
+                  return {
+                    originalIndex: index,
+                    x:
+                      index === 0
+                        ? 0
+                        : centerPos(dimensions.width, dimensions.height).x,
+                    y:
+                      index === 0
+                        ? 0
+                        : centerPos(dimensions.width, dimensions.height).y,
+                    width: dimensions.width,
+                    height: dimensions.height,
+                    rotation: 0,
+                  };
+                }
+              });
+
+              return newDraggedImages;
             });
 
-            return images;
-          });
+            // Update konvaImages with correct dimensions
+            setKonvaImages((prevKonvaImages) => {
+              const images = uploadedMedia.map((media, idx) => {
+                const existingKonvaImage = prevKonvaImages.find(
+                  (img) => img.id === idx
+                );
+
+                const dimensions = imageDimensions[idx];
+
+                if (existingKonvaImage) {
+                  return {
+                    ...existingKonvaImage,
+                    media,
+                    width: dimensions.width,
+                    height: dimensions.height,
+                  };
+                } else {
+                  const isBase = idx === 0;
+                  const centerPos = (w, h) => ({
+                    x: (width - w) / 2,
+                    y: (height - h) / 2,
+                  });
+                  return {
+                    id: idx,
+                    media,
+                    konvaImg: null,
+                    x: isBase
+                      ? 0
+                      : centerPos(dimensions.width, dimensions.height).x,
+                    y: isBase
+                      ? 0
+                      : centerPos(dimensions.width, dimensions.height).y,
+                    width: dimensions.width,
+                    height: dimensions.height,
+                    rotation: 0,
+                    isDragging: false,
+                  };
+                }
+              });
+
+              // Load images for new konva items only
+              images.forEach((item, i) => {
+                if (!item.konvaImg) {
+                  const imgObj = new window.Image();
+                  imgObj.src = item.media.preview;
+                  imgObj.onload = () => {
+                    setKonvaImages((prev) => {
+                      const updated = [...prev];
+                      if (updated[i]) {
+                        updated[i].konvaImg = imgObj;
+                      }
+                      return updated;
+                    });
+                  };
+                }
+              });
+
+              return images;
+            });
+          };
+
+          loadImageDimensions();
         };
         img.src = firstImage.preview;
       }
     }
   }, [uploadedMedia]);
-
-  // REMOVED: Manual zIndex sorting - Konva handles layering automatically
 
   // Attach/clear Transformer based on selection (non-base images only)
   useEffect(() => {
@@ -658,7 +1815,12 @@ const MainCanvas = ({
   // Mouse/Touch event handlers (UPDATED to handle canvasEffects drag & drop)
   useEffect(() => {
     const handleMove = (e) => {
-      if (!isDragging || draggedImageId === null) return;
+      // REMOVED: Custom drag handling for uploaded images
+      // Only handle effect dragging
+      const effectIndex = canvasEffects.findIndex(
+        (ef) => ef.id === draggedImageId
+      );
+      if (effectIndex === -1) return;
 
       e.preventDefault();
 
@@ -673,62 +1835,26 @@ const MainCanvas = ({
       let newY = clientY - (stageRect?.top || 0) - dragOffset.y;
 
       // If dragging an effect from canvasEffects
-      const effectIndex = canvasEffects.findIndex(
-        (ef) => ef.id === draggedImageId
+      const ef = canvasEffects[effectIndex];
+      // Boundaries for effect icon
+      const minMargin = 5;
+      newX = Math.max(
+        minMargin,
+        Math.min(newX, canvasSize.width - ef.width - minMargin)
       );
-      if (effectIndex !== -1) {
-        // Boundaries for effect icon
-        const ef = canvasEffects[effectIndex];
-        const minMargin = 5;
-        newX = Math.max(
-          minMargin,
-          Math.min(newX, canvasSize.width - ef.width - minMargin)
-        );
-        newY = Math.max(
-          minMargin,
-          Math.min(newY, canvasSize.height - ef.height - minMargin)
-        );
-
-        setCanvasEffects((prev) => {
-          const updated = [...prev];
-          updated[effectIndex] = {
-            ...updated[effectIndex],
-            x: newX,
-            y: newY,
-            isDragging: true,
-          };
-          return updated;
-        });
-        return;
-      }
-
-      // Otherwise, it's a dragged uploaded image
-      const currentImage = draggedImages.find(
-        (img) => img.originalIndex === draggedImageId
-      );
-      const imageWidth = currentImage?.width || 100;
-      const imageHeight = currentImage?.height || 100;
-
-      newX = Math.max(0, Math.min(newX, canvasSize.width - imageWidth));
-      newY = Math.max(0, Math.min(newY, canvasSize.height - imageHeight));
-
-      // Update image position
-      setDraggedImages((prevImages) =>
-        prevImages.map((img) =>
-          img.originalIndex === draggedImageId
-            ? { ...img, x: newX, y: newY }
-            : img
-        )
+      newY = Math.max(
+        minMargin,
+        Math.min(newY, canvasSize.height - ef.height - minMargin)
       );
 
-      // Also update konva images
-      setKonvaImages((prev) => {
+      setCanvasEffects((prev) => {
         const updated = [...prev];
-        const idx = updated.findIndex((u) => u.id === draggedImageId);
-        if (idx !== -1) {
-          updated[idx].x = newX;
-          updated[idx].y = newY;
-        }
+        updated[effectIndex] = {
+          ...updated[effectIndex],
+          x: newX,
+          y: newY,
+          isDragging: true,
+        };
         return updated;
       });
     };
@@ -780,6 +1906,8 @@ const MainCanvas = ({
 
             // Remove the small effect icon from canvas (if you want to keep it, change this)
             setCanvasEffects((prev) => prev.filter((x) => x.id !== ef.id));
+            // Hide the hint once successfully dropped
+            setShowEffectHint(false);
           } else {
             // If not dropped on a target, just clear isDragging
             setCanvasEffects((prev) =>
@@ -836,33 +1964,6 @@ const MainCanvas = ({
     }
   }, [contextMenu.visible]);
 
-  const handleStart = (e, imageIndex) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const rect = e.currentTarget.getBoundingClientRect();
-
-    // Get coordinates from mouse or touch event
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-    setDragOffset({
-      x: clientX - rect.left,
-      y: clientY - rect.top,
-    });
-
-    setIsDragging(true);
-    setDraggedImageId(imageIndex);
-
-    // CORRECTED: Use proper Konva layering instead of zIndex
-    const stage = stageRef.current;
-    const layer = stage?.getLayers()[1]; // editable layer
-    const targetNode = layer?.findOne(`#image-${imageIndex}`);
-    if (targetNode) {
-      // Move to front when starting drag
-      moveToFront(targetNode, layer);
-    }
-  };
   const moveToFront = (node, layer) => {
     node.moveToTop();
     layer.batchDraw();
@@ -892,6 +1993,180 @@ const MainCanvas = ({
     }
     hideContextMenu();
   };
+
+  // ----- Warp Overlay Drawing (HTML Canvas) -----
+  const drawWarpedImage = useCallback(() => {
+    if (!warpMode.active || warpMode.targetId == null) return;
+    const target = konvaImages.find((img) => img.id === warpMode.targetId);
+    if (!target || !target.konvaImg) return;
+
+    const canvas = warpCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    // Match the Konva stage size
+    canvas.width = canvasSize.width;
+    canvas.height = canvasSize.height;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Convenience
+    const img = target.konvaImg;
+    const sx = 0,
+      sy = 0,
+      sw = img.width,
+      sh = img.height;
+
+    // Triangles: [0,1,2] and [0,2,3]
+    const p0 = warpCorners[0];
+    const p1 = warpCorners[1];
+    const p2 = warpCorners[2];
+    const p3 = warpCorners[3];
+
+    const drawTriangle = (pA, pB, pC, srcTri) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(pA.x, pA.y);
+      ctx.lineTo(pB.x, pB.y);
+      ctx.lineTo(pC.x, pC.y);
+      ctx.closePath();
+      ctx.clip();
+
+      const denom =
+        srcTri[0] * (srcTri[3] - srcTri[5]) +
+        srcTri[2] * (srcTri[5] - srcTri[1]) +
+        srcTri[4] * (srcTri[1] - srcTri[3]);
+      if (denom === 0) {
+        ctx.restore();
+        return;
+      }
+
+      const a =
+        (pA.x * (srcTri[3] - srcTri[5]) +
+          pB.x * (srcTri[5] - srcTri[1]) +
+          pC.x * (srcTri[1] - srcTri[3])) /
+        denom;
+      const b =
+        (pA.x * (srcTri[4] - srcTri[2]) +
+          pB.x * (srcTri[0] - srcTri[4]) +
+          pC.x * (srcTri[2] - srcTri[0])) /
+        denom;
+      const c =
+        (pA.x * (srcTri[2] * srcTri[5] - srcTri[4] * srcTri[3]) +
+          pB.x * (srcTri[4] * srcTri[1] - srcTri[0] * srcTri[5]) +
+          pC.x * (srcTri[0] * srcTri[3] - srcTri[2] * srcTri[1])) /
+        denom;
+      const d =
+        (pA.y * (srcTri[3] - srcTri[5]) +
+          pB.y * (srcTri[5] - srcTri[1]) +
+          pC.y * (srcTri[1] - srcTri[3])) /
+        denom;
+      const e =
+        (pA.y * (srcTri[4] - srcTri[2]) +
+          pB.y * (srcTri[0] - srcTri[4]) +
+          pC.y * (srcTri[2] - srcTri[0])) /
+        denom;
+      const f =
+        (pA.y * (srcTri[2] * srcTri[5] - srcTri[4] * srcTri[3]) +
+          pB.y * (srcTri[4] * srcTri[1] - srcTri[0] * srcTri[5]) +
+          pC.y * (srcTri[0] * srcTri[3] - srcTri[2] * srcTri[1])) /
+        denom;
+
+      ctx.setTransform(a, d, b, e, c, f);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      ctx.restore();
+    };
+
+    drawTriangle(p0, p1, p2, [0, 0, sw, 0, sw, sh]);
+    drawTriangle(p0, p2, p3, [0, 0, sw, sh, 0, sh]);
+
+    // Draw anchors on top
+    ctx.save();
+    ctx.fillStyle = "#8088e2";
+    warpCorners.forEach((c) => {
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+  }, [
+    warpMode.active,
+    warpMode.targetId,
+    warpCorners,
+    konvaImages,
+    canvasSize,
+  ]);
+  // ----- Warp Overlay Drawing (HTML Canvas) -----
+
+  useEffect(() => {
+    drawWarpedImage();
+  }, [drawWarpedImage]);
+
+  // Broadcast warp mode status so LeftSidebar can highlight the Skew icon
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("warpModeChanged", {
+        detail: { active: warpMode.active },
+      })
+    );
+  }, [warpMode.active]);
+
+  // Enter warp mode from external trigger (e.g., LeftSidebar Skew icon)
+  useEffect(() => {
+    const handleEnterWarp = () => {
+      if (warpMode.active) return;
+      const targetId = selectedMediaIndex;
+      if (targetId == null || targetId === 0) return; // must be a non-base selected image
+      const target = konvaImages.find((img) => img.id === targetId);
+      if (!target || !target.konvaImg) return;
+      const cornersInit = [
+        { x: target.x, y: target.y },
+        { x: target.x + target.width, y: target.y },
+        { x: target.x + target.width, y: target.y + target.height },
+        { x: target.x, y: target.y + target.height },
+      ];
+      setWarpCorners(cornersInit);
+      setWarpMode({ active: true, targetId });
+    };
+
+    window.addEventListener("enterWarpTransform", handleEnterWarp);
+    return () =>
+      window.removeEventListener("enterWarpTransform", handleEnterWarp);
+  }, [warpMode.active, selectedMediaIndex, konvaImages]);
+
+  // Handle zoom mode changes from LeftSidebar
+  useEffect(() => {
+    const handleZoomModeChange = (e) => {
+      if (e.detail?.mode === "ZoomIn") {
+        setZoomMode("zoom-in");
+      } else if (e.detail?.mode === "ZoomOut") {
+        setZoomMode("zoom-out");
+      } else if (e.detail?.mode === null) {
+        setZoomMode(null);
+      }
+    };
+
+    window.addEventListener("zoomModeChanged", handleZoomModeChange);
+    return () =>
+      window.removeEventListener("zoomModeChanged", handleZoomModeChange);
+  }, []);
+
+  // Handle tool changes to deactivate zoom mode
+  useEffect(() => {
+    const handleToolChange = (e) => {
+      const tool = e.detail?.tool;
+      if (tool && tool !== "ZoomIn" && tool !== "ZoomOut") {
+        setZoomMode(null);
+        // Dispatch zoom mode change event to update left sidebar
+        window.dispatchEvent(
+          new CustomEvent("zoomModeChanged", { detail: { mode: null } })
+        );
+      }
+    };
+
+    window.addEventListener("toolChanged", handleToolChange);
+    return () => window.removeEventListener("toolChanged", handleToolChange);
+  }, []);
 
   // Handle drag selection start
   const handleSelectionStart = (e) => {
@@ -1011,6 +2286,13 @@ const MainCanvas = ({
           onTouchMove={handleSelectionMove}
           onMouseUp={handleSelectionEnd}
           onTouchEnd={handleSelectionEnd}
+          style={{
+            cursor: zoomMode
+              ? zoomMode === "zoom-in"
+                ? "zoom-in"
+                : "zoom-out"
+              : "default",
+          }}
         >
           {/* Fixed Background Layer - Base Image */}
           <Layer>
@@ -1148,9 +2430,51 @@ const MainCanvas = ({
                 selectedMediaIndex === actualIndex ||
                 selectedImages.includes(actualIndex);
               const isGrouped = groupedImages.includes(actualIndex);
+              const hiddenByWarp =
+                warpMode.active && warpMode.targetId === actualIndex;
 
               // Don't render if it's part of a group
               if (isGrouped) return null;
+              if (hiddenByWarp) return null;
+
+              // Get zoom data for this image
+              const zoomData = imageZoomLevels[actualIndex] || {
+                scale: 1,
+                offsetX: 0,
+                offsetY: 0,
+              };
+
+              // Check if konvaImg exists before proceeding
+              if (!item.konvaImg) return null;
+
+              // Calculate crop area for zoom effect within image boundaries
+              const scale = zoomData.scale;
+              const offsetX = zoomData.offsetX;
+              const offsetY = zoomData.offsetY;
+
+              // Calculate the source image dimensions
+              const sourceWidth = item.konvaImg.width;
+              const sourceHeight = item.konvaImg.height;
+
+              // Calculate crop dimensions (smaller area = more zoom)
+              const cropWidth = sourceWidth / scale;
+              const cropHeight = sourceHeight / scale;
+
+              // Calculate crop position (centered with offset)
+              const cropX = Math.max(
+                0,
+                Math.min(
+                  sourceWidth - cropWidth,
+                  (sourceWidth - cropWidth) / 2 + offsetX
+                )
+              );
+              const cropY = Math.max(
+                0,
+                Math.min(
+                  sourceHeight - cropHeight,
+                  (sourceHeight - cropHeight) / 2 + offsetY
+                )
+              );
 
               return (
                 <KonvaImage
@@ -1162,27 +2486,45 @@ const MainCanvas = ({
                   width={item.width}
                   height={item.height}
                   rotation={item.rotation}
-                  onClick={() => setSelectedMediaIndex(actualIndex)}
-                  onTap={() => setSelectedMediaIndex(actualIndex)}
-                  onDragStart={() => setSelectedMediaIndex(actualIndex)}
-                  onContextMenu={(e) => {
-                    e.evt.preventDefault();
-                    const stage = e.target.getStage();
-                    const pointerPosition = stage.getPointerPosition();
-                    setContextMenu({
-                      visible: true,
-                      x: pointerPosition.x,
-                      y: pointerPosition.y,
-                      targetImageId: actualIndex,
-                    });
+                  crop={{
+                    x: cropX,
+                    y: cropY,
+                    width: cropWidth,
+                    height: cropHeight,
                   }}
-                  draggable={
-                    !konvaImages.find((img) => img.id === actualIndex)?.locked
-                  }
+                  onClick={(e) => {
+                    if (zoomMode && selectedMediaIndex === actualIndex) {
+                      const stage = e.target.getStage();
+                      const pointerPosition = stage.getPointerPosition();
+                      handleZoomClick(
+                        actualIndex,
+                        pointerPosition.x,
+                        pointerPosition.y
+                      );
+                    } else {
+                      setSelectedMediaIndex(actualIndex);
+                    }
+                  }}
+                  onTap={(e) => {
+                    if (zoomMode && selectedMediaIndex === actualIndex) {
+                      const stage = e.target.getStage();
+                      const pointerPosition = stage.getPointerPosition();
+                      handleZoomClick(
+                        actualIndex,
+                        pointerPosition.x,
+                        pointerPosition.y
+                      );
+                    } else {
+                      setSelectedMediaIndex(actualIndex);
+                    }
+                  }}
+                  onDragStart={() => setSelectedMediaIndex(actualIndex)}
                   onDragMove={(e) => {
                     const node = e.target;
                     const newX = node.x();
                     const newY = node.y();
+
+                    // Update draggedImages state for consistency
                     setDraggedImages((prev) =>
                       prev.map((img) =>
                         img.originalIndex === actualIndex
@@ -1190,6 +2532,7 @@ const MainCanvas = ({
                           : img
                       )
                     );
+
                     const rectKonva = node.getClientRect({
                       skipTransform: false,
                     });
@@ -1274,11 +2617,37 @@ const MainCanvas = ({
                       newPos.y = snapY.newPos.y;
                     }
 
+                    // setGuides(newGuides);
+                    // node.position(newPos);
+                    // const abs = getAbsXY(node);
+                    // const maxX = canvasSize.width - item.width;
+                    // const maxY = canvasSize.height - item.height;
+                    // const finalX = clamp(abs.x, 0, Math.max(0, Math.floor(maxX)));
+                    // const finalY = clamp(abs.y, 0, Math.max(0, Math.floor(maxY)));
+                    // node.absolutePosition({ x: finalX, y: finalY });
+                    // const logged = getAbsXY(node);
+                    // console.log("Dragged Image Position:", logged);
                     setGuides(newGuides);
                     node.position(newPos);
+                    const abs = getAbsXY(node);
+                    const logged = getAbsXY(node);
+                    console.log("Dragged Image Position:", logged);
+                    setDraggedImages((prev) =>
+                      prev.map((img) =>
+                        img.originalIndex === actualIndex
+                          ? { ...img, x: logged.x, y: logged.y }
+                          : img
+                      )
+                    );
                   }}
                   onDragEnd={(e) => {
-                    const { x, y } = e.target.position();
+                    console.log("Dragged Image Position:", {
+                      x: e.target.x(),
+                      y: e.target.y(),
+                    });
+
+                    const { x, y } = getAbsXY(e.target);
+                    console.log("Dragged Image Position:", { x, y });
                     setGuides({ vertical: [], horizontal: [] });
                     setKonvaImages((prev) => {
                       const updated = [...prev];
@@ -1295,6 +2664,20 @@ const MainCanvas = ({
                       )
                     );
                   }}
+                  onContextMenu={(e) => {
+                    e.evt.preventDefault();
+                    const stage = e.target.getStage();
+                    const pointerPosition = stage.getPointerPosition();
+                    setContextMenu({
+                      visible: true,
+                      x: pointerPosition.x,
+                      y: pointerPosition.y,
+                      targetImageId: actualIndex,
+                    });
+                  }}
+                  draggable={
+                    !konvaImages.find((img) => img.id === actualIndex)?.locked
+                  }
                   onTransformEnd={(e) => {
                     const node = e.target;
                     const scaleX = node.scaleX();
@@ -1342,6 +2725,7 @@ const MainCanvas = ({
             {/* Transformer for selected images */}
             <Transformer
               ref={transformerRef}
+              visible={!warpMode.active && !eraserMode.active}
               rotateEnabled
               enabledAnchors={[
                 "top-left",
@@ -1405,6 +2789,221 @@ const MainCanvas = ({
               )}
           </Layer>
         </Stage>
+
+        {/* Warp Transform Overlay (HTML Canvas + Anchor Drag) */}
+        {warpMode.active &&
+          (() => {
+            const containerRect = canvasRef.current?.getBoundingClientRect();
+            const stageElement = stageRef.current?.getStage().container();
+            const stageRect = stageElement?.getBoundingClientRect();
+            const stageOffsetX =
+              stageRect && containerRect
+                ? stageRect.left - containerRect.left
+                : 0;
+            const stageOffsetY =
+              stageRect && containerRect
+                ? stageRect.top - containerRect.top
+                : 0;
+
+            const topBarLeft = stageOffsetX;
+            const topBarTop = stageOffsetY - 44;
+
+            const handleMouseDown = (e) => {
+              e.preventDefault();
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              let nearest = -1;
+              let bestDist = Infinity;
+              warpCorners.forEach((c, i) => {
+                const d = Math.hypot(c.x - x, c.y - y);
+                if (d < bestDist) {
+                  bestDist = d;
+                  nearest = i;
+                }
+              });
+              if (bestDist <= 14) setWarpDragIndex(nearest);
+            };
+
+            const handleMouseMove = (e) => {
+              if (warpDragIndex == null) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = Math.max(
+                0,
+                Math.min(e.clientX - rect.left, canvasSize.width)
+              );
+              const y = Math.max(
+                0,
+                Math.min(e.clientY - rect.top, canvasSize.height)
+              );
+              setWarpCorners((prev) => {
+                const next = [...prev];
+                next[warpDragIndex] = { x, y };
+                return next;
+              });
+            };
+
+            const handleMouseUp = () => setWarpDragIndex(null);
+
+            const handleTouchStart = (e) => {
+              const touch = e.touches[0];
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = touch.clientX - rect.left;
+              const y = touch.clientY - rect.top;
+              let nearest = -1;
+              let bestDist = Infinity;
+              warpCorners.forEach((c, i) => {
+                const d = Math.hypot(c.x - x, c.y - y);
+                if (d < bestDist) {
+                  bestDist = d;
+                  nearest = i;
+                }
+              });
+              if (bestDist <= 18) setWarpDragIndex(nearest);
+            };
+
+            const handleTouchMove = (e) => {
+              if (warpDragIndex == null) return;
+              const touch = e.touches[0];
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = Math.max(
+                0,
+                Math.min(touch.clientX - rect.left, canvasSize.width)
+              );
+              const y = Math.max(
+                0,
+                Math.min(touch.clientY - rect.top, canvasSize.height)
+              );
+              setWarpCorners((prev) => {
+                const next = [...prev];
+                next[warpDragIndex] = { x, y };
+                return next;
+              });
+            };
+
+            const handleTouchEnd = () => setWarpDragIndex(null);
+
+            return (
+              <div
+                className="absolute z-[60]"
+                style={{
+                  left: stageOffsetX,
+                  top: stageOffsetY,
+                  width: canvasSize.width,
+                  height: canvasSize.height,
+                }}
+              >
+                {/* Apply / Cancel bar */}
+                <div
+                  className="absolute left-0 right-0 -top-10 flex items-center justify-end gap-2"
+                  style={{ left: 0, right: 0 }}
+                >
+                  <button
+                    className="px-3 py-1.5 text-sm rounded-sm bg-[#2f2f42] text-white hover:bg-[#262635]"
+                    onClick={exitWarpMode}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-3 py-1.5 text-sm rounded-sm bg-[#8088e2] text-white hover:bg-[#6d77e0]"
+                    onClick={applyWarp}
+                  >
+                    Apply
+                  </button>
+                </div>
+                <canvas
+                  ref={warpCanvasRef}
+                  className="w-full h-full cursor-move"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                />
+              </div>
+            );
+          })()}
+
+        {/* Eraser Transform Overlay */}
+        {eraserMode.active &&
+          (() => {
+            const target = konvaImages.find(
+              (img) => img.id === eraserMode.targetId
+            );
+            if (!target) return null;
+
+            const containerRect = canvasRef.current?.getBoundingClientRect();
+            const stageElement = stageRef.current?.getStage().container();
+            const stageRect = stageElement?.getBoundingClientRect();
+            const stageOffsetX =
+              stageRect && containerRect
+                ? stageRect.left - containerRect.left
+                : 0;
+            const stageOffsetY =
+              stageRect && containerRect
+                ? stageRect.top - containerRect.top
+                : 0;
+
+            return (
+              <div
+                className="absolute z-[60]"
+                style={{
+                  left: stageOffsetX + target.x,
+                  top: stageOffsetY + target.y,
+                  width: target.width,
+                  height: target.height,
+                }}
+              >
+                {/* Apply / Cancel bar */}
+                <div className="absolute left-0 right-0 -top-12 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-white text-sm">Brush:</label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="50"
+                      value={eraserBrushSize}
+                      onChange={(e) =>
+                        setEraserBrushSize(Number(e.target.value))
+                      }
+                      className="w-20"
+                    />
+                    <span className="text-white text-xs">
+                      {eraserBrushSize}px
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="px-3 py-1.5 text-sm rounded-sm bg-[#2f2f42] text-white hover:bg-[#262635]"
+                      onClick={exitEraserMode}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="px-3 py-1.5 text-sm rounded-sm bg-[#8088e2] text-white hover:bg-[#6d77e0]"
+                      onClick={applyEraser}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+                <canvas
+                  ref={eraserCanvasRef}
+                  className="w-full h-full cursor-crosshair"
+                  style={{ touchAction: "none" }}
+                  onMouseDown={startErasing}
+                  onMouseMove={continueErasing}
+                  onMouseUp={stopErasing}
+                  onMouseLeave={stopErasing}
+                  onTouchStart={startErasing}
+                  onTouchMove={continueErasing}
+                  onTouchEnd={stopErasing}
+                />
+              </div>
+            );
+          })()}
 
         {/* Render small draggable effect icons (HTML) */}
         {canvasEffects.map((ef) => {
@@ -1499,6 +3098,23 @@ const MainCanvas = ({
                 );
               }}
             >
+              {showEffectHint && (
+                <button
+                  className="absolute top-1 right-1 w-5 h-5 p-0 rounded-full bg-[#b4b9ea] text-[#0f0f16] border border-black/20 flex items-center justify-center shadow-md z-[55] hover:bg-white"
+                  title="Remove"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCanvasEffects((prev) => {
+                      const next = prev.filter((x) => x.id !== ef.id);
+                      if (next.length === 0) setShowEffectHint(false);
+                      return next;
+                    });
+                  }}
+                >
+                  <X className="w-4 h-4 text-gray-600" strokeWidth={3} />
+                </button>
+              )}
               <img
                 src={ef.gifUrl}
                 alt="ef"
@@ -1509,6 +3125,22 @@ const MainCanvas = ({
             </div>
           );
         })}
+
+        {/* Effect guidance hint */}
+        {showEffectHint && canvasEffects.length > 0 && (
+          <div className="absolute z-[70] top-3 left-1/2 -translate-x-1/2 bg-[rgba(0,0,0,0.65)] text-white text-sm px-3 py-1.5 rounded border border-[#8088e2]">
+            Drag and Drop on the image
+          </div>
+        )}
+
+        {/* Zoom mode indicator */}
+        {zoomMode && selectedMediaIndex && (
+          <div className="absolute z-[70] top-3 left-1/2 -translate-x-1/2 bg-[rgba(0,0,0,0.65)] text-white text-sm px-3 py-1.5 rounded border border-[#8088e2]">
+            {zoomMode === "zoom-in"
+              ? "Click on the selected image to zoom in"
+              : "Click on the selected image to zoom out"}
+          </div>
+        )}
 
         {/* Render applied effects for images (if any) */}
         {draggedImages.map((img) => {
@@ -1627,6 +3259,11 @@ const MainCanvas = ({
           {/* Timeline or other controls can go here */}
         </div>
       )}
+      {/* Add this just before the last closing </div> */}
+      <VideoExportLoader
+        isVisible={exportLoading}
+        onClose={() => setExportLoading(false)}
+      />
     </div>
   );
 };
