@@ -22,13 +22,15 @@ const Navbar = () => {
         {/* Desktop Layout */}
         <div className="hidden lg:flex items-center justify-between">
           {/* Logo */}
-          {/* <h1 className="text-4xl font-semibold tracking-wider">Cinemaglow</h1> */}
 
-          <img
-            src={logo}
-            alt="Cinemaglow Logo"
-            className="h-24 w-auto object-contain"
-          />
+          <div className="flex items-center gap-3">
+            <img
+              src={logo}
+              alt="Cinemaglow Logo"
+              className="h-24 w-auto object-contain"
+            />
+            <span className="text-3xl font-bold tracking-wide">Stardust</span>
+          </div>
           {/* Nav Links */}
           <div
             className="relative backdrop-blur-xl border border-white/20 px-7 py-2 rounded-full flex items-center gap-1"
@@ -43,10 +45,9 @@ const Navbar = () => {
                 key={link.name}
                 to={link.path}
                 className={({ isActive }) =>
-                  `relative text-[16px] font-semibold px-3 py-2 rounded-md transition-all duration-300 ${
-                    isActive
-                      ? "text-[#8088E2]"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  `relative text-[16px] font-semibold px-3 py-2 rounded-md transition-all duration-300 ${isActive
+                    ? "text-[#8088E2]"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
                   }`
                 }
               >
@@ -80,12 +81,19 @@ const Navbar = () => {
               />
             </svg>
             <button
+              onClick={() =>
+                window.open(
+                  "https://www.paypal.com/donate?hosted_button_id=6SWFP9BSSTJ9G",
+                  "_self" // same tab
+                )
+              }
               className="relative z-10 px-10 ms-2 py-2.5 text-[16px] font-medium text-white transition-all duration-300 hover:bg-[#8088E2] hover:-translate-y-0.5 hover:shadow-lg"
               style={{ background: "transparent" }}
             >
               Donate
             </button>
           </div>
+
         </div>
 
         {/* Mobile Layout */}
@@ -104,9 +112,8 @@ const Navbar = () => {
               aria-label="Toggle mobile menu"
             >
               <svg
-                className={`w-6 h-6 transition-transform duration-300 ${
-                  isMobileMenuOpen ? "rotate-90" : ""
-                }`}
+                className={`w-6 h-6 transition-transform duration-300 ${isMobileMenuOpen ? "rotate-90" : ""
+                  }`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -132,9 +139,8 @@ const Navbar = () => {
 
           {/* Mobile Menu */}
           <div
-            className={`mt-4 transition-all duration-300 ease-in-out overflow-hidden ${
-              isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-            }`}
+            className={`mt-4 transition-all duration-300 ease-in-out overflow-hidden ${isMobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+              }`}
           >
             <div
               className="backdrop-blur-xl border border-white/20 rounded-2xl p-4 space-y-2"
@@ -151,10 +157,9 @@ const Navbar = () => {
                   to={link.path}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `block text-[16px] font-semibold px-4 py-3 rounded-lg transition-all duration-300 ${
-                      isActive
-                        ? "text-[#8088E2] bg-[#8088E2]/10"
-                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                    `block text-[16px] font-semibold px-4 py-3 rounded-lg transition-all duration-300 ${isActive
+                      ? "text-[#8088E2] bg-[#8088E2]/10"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
                     }`
                   }
                 >
@@ -194,10 +199,9 @@ const Navbar = () => {
                 key={link.name}
                 to={link.path}
                 className={({ isActive }) =>
-                  `relative text-[14px] font-semibold px-2 py-2 rounded-md transition-all duration-300 ${
-                    isActive
-                      ? "text-[#8088E2]"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  `relative text-[14px] font-semibold px-2 py-2 rounded-md transition-all duration-300 ${isActive
+                    ? "text-[#8088E2]"
+                    : "text-gray-400 hover:text-white hover:bg-white/5"
                   }`
                 }
               >

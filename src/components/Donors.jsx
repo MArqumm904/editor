@@ -1,27 +1,34 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
-import ppf from "../assets/images/image.png";
+import image1 from "../assets/images/image1.png";
+import image2 from "../assets/images/image2.jpg";
+import image3 from "../assets/images/image3.png";
+import image4 from "../assets/images/image4.png";
+import image5 from "../assets/images/image5.jpg";
+import image6 from "../assets/images/image6.png";
+import image7 from "../assets/images/image7.jpg";
+import image8 from "../assets/images/image8.png";
+import image9 from "../assets/images/image9.png";
+import image10 from "../assets/images/image10.jpg";
+import image11 from "../assets/images/image11.png";
+import image12 from "../assets/images/image12.png";
 import DollarImage from "../assets/images/dollar.png";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const Donors = () => {
   const donors = [
-    { id: 1, name: "John Doe", amount: "$100" },
-    { id: 2, name: "Jane Smith", amount: "$250" },
-    { id: 3, name: "Mike Johnson", amount: "$150" },
-    { id: 4, name: "Sarah Wilson", amount: "$300" },
-    { id: 5, name: "David Brown", amount: "$200" },
-    { id: 6, name: "Lisa Davis", amount: "$180" },
-    { id: 7, name: "Tom Miller", amount: "$220" },
-    { id: 8, name: "Amy Taylor", amount: "$190" },
-    { id: 9, name: "Chris Lee", amount: "$280" },
-    { id: 10, name: "Emma White", amount: "$160" },
-    { id: 11, name: "Ryan Clark", amount: "$240" },
-    { id: 12, name: "Sophie Hall", amount: "$210" },
-    { id: 13, name: "Alex Green", amount: "$170" },
-    { id: 14, name: "Maya Patel", amount: "$260" },
-    { id: 15, name: "Jake Adams", amount: "$140" },
-    { id: 16, name: "Zoe Cooper", amount: "$320" },
+    { id: 1, name: "Jain Smith", amount: "$50", image: image8 },
+    { id: 2, name: "Johnson", amount: "$10", image: image9 },
+    { id: 3, name: "Laura", amount: "$100", image: image1 },
+    { id: 4, name: "Sarah Wilson", amount: "$20", image: image2 },
+    { id: 5, name: "Ayesha", amount: "$100", image: image3 },
+    { id: 6, name: "Lisa Davis", amount: "$5", image: image4 },
+    { id: 7, name: "Zara", amount: "$50", image: image5 },
+    { id: 8, name: "Amy Taylor", amount: "$5", image: image10 },
+    { id: 9, name: "Chris Lee", amount: "$20", image: image11 },
+    { id: 10, name: "Emma White", amount: "$50", image: image6 },
+    { id: 11, name: "Ryan Clark", amount: "$100", image: image12 },
+    { id: 12, name: "Sophie Hall", amount: "$1", image: image7 },
   ];
 
   const [itemsPerPage, setItemsPerPage] = useState(1);
@@ -48,8 +55,8 @@ const Donors = () => {
   };
 
   const titleVariants = {
-    hidden: { 
-      opacity: 0, 
+    hidden: {
+      opacity: 0,
       y: -50,
       scale: 0.9,
       filter: "blur(10px)"
@@ -67,8 +74,8 @@ const Donors = () => {
   };
 
   const carouselVariants = {
-    hidden: { 
-      opacity: 0, 
+    hidden: {
+      opacity: 0,
       y: 100,
       scale: 0.95
     },
@@ -84,8 +91,8 @@ const Donors = () => {
   };
 
   const cardVariants = {
-    hidden: { 
-      opacity: 0, 
+    hidden: {
+      opacity: 0,
       y: 80,
       scale: 0.8,
       filter: "blur(8px)"
@@ -173,7 +180,7 @@ const Donors = () => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="bg-darkbg flex items-center justify-center p-4 md:p-8 pt-12 md:pt-24"
       initial="hidden"
       animate="visible"
@@ -181,7 +188,7 @@ const Donors = () => {
     >
       <div className="max-w-6xl w-full">
         {/* Title */}
-        <motion.h1 
+        <motion.h1
           ref={titleRef}
           className="text-white text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 md:mb-16"
           variants={titleVariants}
@@ -192,7 +199,7 @@ const Donors = () => {
         </motion.h1>
 
         {/* Carousel */}
-        <motion.div 
+        <motion.div
           ref={carouselRef}
           className="relative"
           variants={carouselVariants}
@@ -222,7 +229,7 @@ const Donors = () => {
               dragMomentum={false}
               onDragEnd={(event, info) => {
                 const threshold = 100; // Minimum drag distance to trigger page change
-                
+
                 // If drag distance is significant enough, change page
                 if (info.offset.x < -threshold) {
                   // Swipe left - go to next page
@@ -252,7 +259,7 @@ const Donors = () => {
                         whileTap={{ scale: 0.95 }}
                       >
                         <div className="relative z-10 flex flex-col items-center">
-                          <motion.div 
+                          <motion.div
                             className="w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full mb-2 flex items-center justify-center"
                             whileHover={{
                               scale: 1.08,
@@ -261,7 +268,7 @@ const Donors = () => {
                             }}
                           >
                             <img
-                              src={ppf}
+                              src={donor.image || ppf}
                               alt={donor.name}
                               className="w-full h-full object-cover bg-gray-300 rounded-full"
                               draggable={false}
@@ -269,7 +276,7 @@ const Donors = () => {
                           </motion.div>
 
                           {/* Name */}
-                          <motion.h3 
+                          <motion.h3
                             className="text-white text-xl sm:text-2xl font-semibold mb-3"
                             whileHover={{
                               color: "#8088E2",
@@ -281,7 +288,7 @@ const Donors = () => {
                           </motion.h3>
 
                           {/* Amount with dollar image */}
-                          <motion.div 
+                          <motion.div
                             className="flex items-center space-x-2"
                             whileHover={{
                               scale: 1.15,
@@ -329,7 +336,7 @@ const Donors = () => {
           >
             <ArrowLeft size={18} />
           </motion.button>
-          
+
           <motion.button
             onClick={goNext}
             disabled={currentPage === pages.length - 1}
@@ -347,7 +354,7 @@ const Donors = () => {
         </motion.div>
 
         {/* Pagination Dots */}
-        <motion.div 
+        <motion.div
           className="flex justify-center space-x-2 mt-3 md:mt-2 mb-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -358,9 +365,8 @@ const Donors = () => {
               key={i}
               aria-label={`Go to slide ${i + 1}`}
               onClick={() => setCurrentPage(i)}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                i === currentPage ? "bg-[#8088e2]" : "bg-gray-600"
-              }`}
+              className={`w-2 h-2 rounded-full transition-colors ${i === currentPage ? "bg-[#8088e2]" : "bg-gray-600"
+                }`}
               variants={dotVariants}
               whileHover="hover"
               animate={i === currentPage ? "active" : ""}

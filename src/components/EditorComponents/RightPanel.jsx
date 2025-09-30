@@ -693,21 +693,6 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaI
         </div>
 
         <div className="bg-[#13131b] rounded-2xl overflow-hidden">
-          <button
-            className="w-full p-3 flex items-center justify-between cursor-pointer transition-all duration-200 ease-in-out"
-            onClick={toggleCategories}
-            type="button"
-          >
-            <span className="text-[#fff] text-[0.810rem] ms-2 mb-1 font-medium">
-              Image Overlays
-            </span>
-            {isCategoriesOpen ? (
-              <ChevronDown className="w-4 h-4 text-[#fff] transition-transform duration-200" />
-            ) : (
-              <ChevronRight className="w-4 h-4 text-[#fff] transition-transform duration-200" />
-            )}
-          </button>
-
           <div
             className={`px-3 transition-all duration-300 ease-in-out overflow-hidden ${isCategoriesOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
               }`}
