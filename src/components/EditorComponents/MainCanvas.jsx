@@ -32,6 +32,7 @@ const MainCanvas = ({
   onRemoveMedia,
   animationOverlays = [],
   onAnimationOverlayRemove,
+  onAnimationOverlayAdd,
 }) => {
   const getAbsXY = (node) => {
     if (!node) return { x: 0, y: 0 };
@@ -147,6 +148,8 @@ const MainCanvas = ({
   const [zoomMode, setZoomMode] = useState(null); // 'zoom-in' or 'zoom-out'
   const [imageZoomLevels, setImageZoomLevels] = useState({}); // {imageId: {scale: 1, offsetX: 0, offsetY: 0}}
   const [exportLoading, setExportLoading] = useState(false);
+  const A4_WIDTH = 1123;
+  const A4_HEIGHT = 794;
 
   const exitWarpMode = useCallback(() => {
     setWarpMode({ active: false, targetId: null });
@@ -1084,158 +1087,145 @@ const MainCanvas = ({
 
     const transformer = transformerRef.current;
     const wasVisible = transformer && transformer.visible();
-
     if (transformer) {
       transformer.visible(false);
       transformer.getLayer()?.batchDraw();
     }
 
     try {
-      // Create a temporary canvas to combine Konva stage + HTML overlays
       const tempCanvas = document.createElement("canvas");
       const tempCtx = tempCanvas.getContext("2d");
 
-      // Set canvas size
-      tempCanvas.width = canvasSize.width * 2; // 2x for better quality
+      tempCanvas.width = canvasSize.width * 2;
       tempCanvas.height = canvasSize.height * 2;
-
-      // Scale context for high DPI
       tempCtx.scale(2, 2);
 
-      // First, draw the Konva stage
+      // Step 1: Draw Konva stage
       const stageDataURL = stage.toDataURL({
         pixelRatio: 2,
         mimeType: "image/png",
       });
-
       const stageImage = new Image();
-      stageImage.onload = async () => {
-        // Draw Konva stage as base
-        tempCtx.drawImage(
-          stageImage,
-          0,
-          0,
-          canvasSize.width,
-          canvasSize.height
-        );
-
-        // Now draw all the applied effects (overlays)
-        const overlayPromises = draggedImages
-          .filter((img) => img.appliedEffect)
-          .map((img) => {
-            return new Promise((resolve) => {
-              const overlayImg = new Image();
-              overlayImg.crossOrigin = "anonymous"; // Handle CORS
-              overlayImg.onload = () => {
-                const isStaticImage =
-                  img.appliedEffect &&
-                  !img.appliedEffect.includes(".gif") &&
-                  !img.appliedEffect.includes("giphy.com");
-
-                // Calculate overlay position and size
-                const effectX = img.x;
-                const effectY = img.y;
-                const effectWidth = img.width;
-                const effectHeight = img.height;
-
-                // Only draw if overlay is within canvas bounds
-                if (
-                  effectX < canvasSize.width &&
-                  effectY < canvasSize.height &&
-                  effectX + effectWidth > 0 &&
-                  effectY + effectHeight > 0
-                ) {
-                  // Calculate visible area
-                  const startX = Math.max(0, effectX);
-                  const startY = Math.max(0, effectY);
-                  const endX = Math.min(
-                    canvasSize.width,
-                    effectX + effectWidth
-                  );
-                  const endY = Math.min(
-                    canvasSize.height,
-                    effectY + effectHeight
-                  );
-                  const visibleWidth = endX - startX;
-                  const visibleHeight = endY - startY;
-
-                  if (visibleWidth > 0 && visibleHeight > 0) {
-                    // Set blend mode and opacity
-                    tempCtx.save();
-                    tempCtx.globalCompositeOperation = isStaticImage
-                      ? "source-over"
-                      : "screen";
-                    tempCtx.globalAlpha = isStaticImage ? 0.7 : 0.45;
-
-                    // Calculate source crop (if overlay extends outside canvas)
-                    const srcX = Math.max(0, -effectX);
-                    const srcY = Math.max(0, -effectY);
-                    const srcWidth = visibleWidth;
-                    const srcHeight = visibleHeight;
-
-                    tempCtx.drawImage(
-                      overlayImg,
-                      srcX,
-                      srcY,
-                      srcWidth,
-                      srcHeight, // Source crop
-                      startX,
-                      startY,
-                      visibleWidth,
-                      visibleHeight // Destination
-                    );
-
-                    tempCtx.restore();
-                  }
-                }
-                resolve();
-              };
-              overlayImg.onerror = () => resolve(); // Skip if image fails to load
-              overlayImg.src = img.appliedEffect;
-            });
-          });
-
-        // Wait for all overlays to be drawn
-        await Promise.all(overlayPromises);
-
-        // Export the final combined image
-        const finalDataURL = tempCanvas.toDataURL("image/png");
-
-        // Download the image
-        const link = document.createElement("a");
-        link.download = "cinemaglow-picture-with-overlays.png";
-        link.href = finalDataURL;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Restore transformer visibility
-        if (transformer && wasVisible) {
-          transformer.visible(true);
-          transformer.getLayer()?.batchDraw();
-        }
-
-        console.log("Image exported with overlays successfully");
-      };
-
-      stageImage.onerror = () => {
-        console.error("Failed to load stage image for export");
-        if (transformer && wasVisible) {
-          transformer.visible(true);
-          transformer.getLayer()?.batchDraw();
-        }
-      };
-
+      stageImage.crossOrigin = "anonymous";
       stageImage.src = stageDataURL;
+
+      await new Promise((resolve, reject) => {
+        stageImage.onload = resolve;
+        stageImage.onerror = reject;
+      });
+
+      tempCtx.drawImage(stageImage, 0, 0, canvasSize.width, canvasSize.height);
+
+      const drawImageOverlay = (img, effectUrl, isStatic = false) => {
+        return new Promise((resolve) => {
+          const overlayImg = new Image();
+          overlayImg.crossOrigin = "anonymous";
+          overlayImg.onload = () => {
+            const effectX = img.x;
+            const effectY = img.y;
+            const effectWidth = img.width;
+            const effectHeight = img.height;
+
+            if (
+              effectX < canvasSize.width &&
+              effectY < canvasSize.height &&
+              effectX + effectWidth > 0 &&
+              effectY + effectHeight > 0
+            ) {
+              const startX = Math.max(0, effectX);
+              const startY = Math.max(0, effectY);
+              const endX = Math.min(canvasSize.width, effectX + effectWidth);
+              const endY = Math.min(canvasSize.height, effectY + effectHeight);
+              const visibleWidth = endX - startX;
+              const visibleHeight = endY - startY;
+
+              if (visibleWidth > 0 && visibleHeight > 0) {
+                tempCtx.save();
+                tempCtx.globalCompositeOperation = isStatic
+                  ? "source-over"
+                  : "screen";
+                tempCtx.globalAlpha = isStatic ? 0.7 : 0.45;
+
+                const srcX = Math.max(0, -effectX);
+                const srcY = Math.max(0, -effectY);
+                const srcWidth = visibleWidth;
+                const srcHeight = visibleHeight;
+
+                tempCtx.drawImage(
+                  overlayImg,
+                  srcX,
+                  srcY,
+                  srcWidth,
+                  srcHeight,
+                  startX,
+                  startY,
+                  visibleWidth,
+                  visibleHeight
+                );
+                tempCtx.restore();
+              }
+            }
+            resolve();
+          };
+          overlayImg.onerror = () => resolve(); // Fail silently
+          overlayImg.src = effectUrl;
+        });
+      };
+
+      const allOverlayPromises = [];
+
+      // ✅ 1. Draw image-applied effects (from draggedImages.appliedEffect)
+      draggedImages
+        .filter((img) => img.appliedEffect)
+        .forEach((img) => {
+          const isStatic =
+            !img.appliedEffect.includes(".gif") &&
+            !img.appliedEffect.includes("giphy.com");
+          allOverlayPromises.push(
+            drawImageOverlay(img, img.appliedEffect, isStatic)
+          );
+        });
+
+      // ✅ 2. Draw global animation overlays (from animationOverlays prop)
+      animationOverlays.forEach((overlay) => {
+        const url = overlay.gifUrl || overlay.url;
+        if (!url) return;
+        const fakeImg = {
+          x: overlay.x || 0,
+          y: overlay.y || 0,
+          width: overlay.width || 130,
+          height: overlay.height || 130,
+        };
+        allOverlayPromises.push(drawImageOverlay(fakeImg, url, false));
+      });
+
+      // Wait for all overlays
+      await Promise.all(allOverlayPromises);
+
+      // Final export
+      const finalDataURL = tempCanvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = "cinemaglow-picture-with-overlays.png";
+      link.href = finalDataURL;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Restore transformer
+      if (transformer && wasVisible) {
+        transformer.visible(true);
+        transformer.getLayer()?.batchDraw();
+      }
+
+      console.log("✅ Image exported with ALL overlays (applied + global)");
     } catch (error) {
-      console.error("Error exporting image with overlays:", error);
+      console.error("❌ Error exporting image:", error);
       if (transformer && wasVisible) {
         transformer.visible(true);
         transformer.getLayer()?.batchDraw();
       }
     }
   };
-
   // Update the existing export event handler to support video export
   const exportVideoRef = useRef();
   const exportImageRef = useRef();
@@ -1476,16 +1466,17 @@ const MainCanvas = ({
   };
 
   // Add effect icon to canvas (130x130)
+  // Find the addEffectToCanvas function and update it:
   const addEffectToCanvas = (effect) => {
     if (!effect) return;
     const gifUrl = effect.gif || effect.gifUrl || effect.url || null;
     if (!gifUrl) return;
-    const id = `ef-${Date.now()}`;
 
-    // Ensure effect is positioned within canvas boundaries
+    const id = `ef-${Date.now()}-${Math.random()}`;
+
     const effectWidth = 130;
     const effectHeight = 130;
-    const minMargin = 5; // Minimum margin from edges
+    const minMargin = 5;
     const startX = Math.max(
       minMargin,
       Math.min(
@@ -1501,22 +1492,59 @@ const MainCanvas = ({
       )
     );
 
-    const newEf = {
+    const newOverlay = {
       id,
+      name: effect.name || "Animation Overlay",
       gifUrl,
+      url: gifUrl,
       x: startX,
       y: startY,
       width: effectWidth,
       height: effectHeight,
-      isDragging: false,
+      type: "animation",
     };
-    setCanvasEffects((prev) => [...prev, newEf]);
+
+    // ADD to animationOverlays instead of canvasEffects
+    if (onAnimationOverlayAdd) {
+      onAnimationOverlayAdd(newOverlay);
+    }
   };
 
   // Sync animation overlays with canvasEffects
+  // useEffect(() => {
+  //   if (animationOverlays && animationOverlays.length > 0) {
+  //     const newCanvasEffects = animationOverlays.map(overlay => ({
+  //       id: overlay.id,
+  //       gifUrl: overlay.gifUrl || overlay.url,
+  //       x: overlay.x || (canvasSize.width - 130) / 2,
+  //       y: overlay.y || (canvasSize.height - 130) / 2,
+  //       width: overlay.width || 130,
+  //       height: overlay.height || 130,
+  //       isDragging: false,
+  //     }));
+  //     setCanvasEffects(newCanvasEffects);
+  //   } else {
+  //     setCanvasEffects([]);
+  //   }
+  // }, [animationOverlays, canvasSize]);
+
   useEffect(() => {
-    if (animationOverlays && animationOverlays.length > 0) {
-      const newCanvasEffects = animationOverlays.map(overlay => ({
+    if (!animationOverlays || animationOverlays.length === 0) {
+      setCanvasEffects([]);
+      return;
+    }
+
+    const existingIds = canvasEffects
+      .map((ef) => ef.id)
+      .sort()
+      .join(",");
+    const newIds = animationOverlays
+      .map((o) => o.id)
+      .sort()
+      .join(",");
+
+    if (existingIds !== newIds) {
+      const newCanvasEffects = animationOverlays.map((overlay) => ({
         id: overlay.id,
         gifUrl: overlay.gifUrl || overlay.url,
         x: overlay.x || (canvasSize.width - 130) / 2,
@@ -1526,10 +1554,8 @@ const MainCanvas = ({
         isDragging: false,
       }));
       setCanvasEffects(newCanvasEffects);
-    } else {
-      setCanvasEffects([]);
     }
-  }, [animationOverlays, canvasSize]);
+  }, [animationOverlays]);
 
   // If activeEffect prop changes, add it to canvas once (prevents duplicates)
   useEffect(() => {
@@ -1631,27 +1657,15 @@ const MainCanvas = ({
     return best;
   };
 
-  // MAIN CHANGE: Replace the useEffect that handles uploadedMedia
-  // Find this useEffect around line 400-500 and replace it:
-
   useEffect(() => {
     if (uploadedMedia && uploadedMedia.length > 0) {
       const firstImage = uploadedMedia[0];
       if (firstImage.type.startsWith("image/")) {
         const img = new window.Image();
         img.onload = () => {
-          let width = img.width;
-          let height = img.height;
+          // Canvas hamesha A4 size hoga
+          setCanvasSize({ width: A4_WIDTH, height: A4_HEIGHT });
 
-          if (width > 600 || height > 600) {
-            const scale = Math.min(600 / width, 650 / height);
-            width = Math.round(width * scale);
-            height = Math.round(height * scale);
-          }
-
-          setCanvasSize({ width, height });
-
-          // UPDATED: Load all images to get their dimensions
           const loadImageDimensions = async () => {
             const imageDimensions = await Promise.all(
               uploadedMedia.map((media, index) => {
@@ -1662,13 +1676,12 @@ const MainCanvas = ({
                       let imgWidth = tempImg.width;
                       let imgHeight = tempImg.height;
 
-                      // Only resize base image, keep others at original size but scale down if too large
                       if (index === 0) {
-                        // Base image uses canvas size
-                        resolve({ width, height });
+                        // Base image always full canvas size
+                        resolve({ width: A4_WIDTH, height: A4_HEIGHT });
                       } else {
-                        // For other images, scale down only if they're too large
-                        const maxSize = 300; // Maximum size for overlay images
+                        // Overlay images independent scaling
+                        const maxSize = 300;
                         if (imgWidth > maxSize || imgHeight > maxSize) {
                           const scale = Math.min(
                             maxSize / imgWidth,
@@ -1682,33 +1695,28 @@ const MainCanvas = ({
                     };
                     tempImg.src = media.preview;
                   } else {
-                    // Fallback for non-images
                     resolve({ width: 150, height: 150 });
                   }
                 });
               })
             );
 
-            // Update draggedImages with correct dimensions
+            // Update draggedImages
             setDraggedImages((prevImages) => {
               const newDraggedImages = uploadedMedia.map((media, index) => {
                 const existingImage = prevImages.find(
                   (img) => img.originalIndex === index
                 );
-
                 const dimensions = imageDimensions[index];
 
+                const centerPos = (w, h) => ({
+                  x: (A4_WIDTH - w) / 2,
+                  y: (A4_HEIGHT - h) / 2,
+                });
+
                 if (existingImage) {
-                  return {
-                    ...existingImage,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                  };
+                  return existingImage; // keep old size
                 } else {
-                  const centerPos = (w, h) => ({
-                    x: (width - w) / 2,
-                    y: (height - h) / 2,
-                  });
                   return {
                     originalIndex: index,
                     x:
@@ -1725,32 +1733,26 @@ const MainCanvas = ({
                   };
                 }
               });
-
               return newDraggedImages;
             });
 
-            // Update konvaImages with correct dimensions
+            // Update konvaImages
             setKonvaImages((prevKonvaImages) => {
               const images = uploadedMedia.map((media, idx) => {
                 const existingKonvaImage = prevKonvaImages.find(
                   (img) => img.id === idx
                 );
-
                 const dimensions = imageDimensions[idx];
 
+                const centerPos = (w, h) => ({
+                  x: (A4_WIDTH - w) / 2,
+                  y: (A4_HEIGHT - h) / 2,
+                });
+
                 if (existingKonvaImage) {
-                  return {
-                    ...existingKonvaImage,
-                    media,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                  };
+                  return existingKonvaImage; // keep old size
                 } else {
                   const isBase = idx === 0;
-                  const centerPos = (w, h) => ({
-                    x: (width - w) / 2,
-                    y: (height - h) / 2,
-                  });
                   return {
                     id: idx,
                     media,
@@ -1769,7 +1771,7 @@ const MainCanvas = ({
                 }
               });
 
-              // Load images for new konva items only
+              // Load only new images
               images.forEach((item, i) => {
                 if (!item.konvaImg) {
                   const imgObj = new window.Image();
