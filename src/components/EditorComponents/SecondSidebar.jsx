@@ -12,12 +12,25 @@ const SecondSidebar = ({
   onMediaReorder,
   isMobile = false,
   activeTab,
-  onTabChange
+  onTabChange,
+  animationOverlays = [],
+  onAnimationOverlaySelect,
+  onAnimationOverlayReorder,
+  onAnimationOverlayRemove
 }) => {
   // const [activeTab, setActiveTab] = useState("Upload");
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedLayerIndex, setDraggedLayerIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [draggedAnimationIndex, setDraggedAnimationIndex] = useState(null);
+  const [dragOverAnimationIndex, setDragOverAnimationIndex] = useState(null);
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    targetId: null,
+    type: null // 'media' or 'animation'
+  });
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -119,6 +132,72 @@ const SecondSidebar = ({
     setDragOverIndex(null);
   };
 
+  // Animation overlay drag handlers
+  const handleAnimationDragStart = (e, index) => {
+    setDraggedAnimationIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', index.toString());
+  };
+
+  const handleAnimationDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverAnimationIndex(index);
+  };
+
+  const handleAnimationDragLeave = () => {
+    setDragOverAnimationIndex(null);
+  };
+
+  const handleAnimationDrop = (e, dropIndex) => {
+    e.preventDefault();
+    if (draggedAnimationIndex !== null && draggedAnimationIndex !== dropIndex) {
+      const newAnimationOrder = [...animationOverlays];
+      const [draggedItem] = newAnimationOrder.splice(draggedAnimationIndex, 1);
+      newAnimationOrder.splice(dropIndex, 0, draggedItem);
+
+      if (onAnimationOverlayReorder) {
+        onAnimationOverlayReorder(newAnimationOrder);
+      }
+    }
+    setDraggedAnimationIndex(null);
+    setDragOverAnimationIndex(null);
+  };
+
+  const handleAnimationDragEnd = () => {
+    setDraggedAnimationIndex(null);
+    setDragOverAnimationIndex(null);
+  };
+
+  // Context menu handlers
+  const handleContextMenu = (e, targetId, type) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      targetId,
+      type
+    });
+  };
+
+  const hideContextMenu = () => {
+    setContextMenu({ visible: false, x: 0, y: 0, targetId: null, type: null });
+  };
+
+  const handleContextMenuAction = (action) => {
+    const { targetId, type } = contextMenu;
+    
+    if (type === 'animation' && onAnimationOverlayRemove) {
+      if (action === 'remove') {
+        onAnimationOverlayRemove(targetId);
+      }
+    }
+    
+    hideContextMenu();
+  };
+
   return (
     <div className={`bg-[#121018] rounded-lg ${isMobile
       ? 'w-full h-full p-4'
@@ -215,6 +294,65 @@ const SecondSidebar = ({
             {isMobile ? "Tap to select • Long press to reorder" : "💡 Drag layers to reorder them. Higher numbers appear on top."}
           </div>
           <div className="space-y-3 overflow-y-auto max-h-full">
+            {/* Animation Overlay Layers */}
+            {animationOverlays && animationOverlays.length > 0 && (
+              <>
+                <div className="text-white text-xs opacity-50 mb-2 px-2 border-b border-gray-600 pb-1">
+                  Animation Overlays ({animationOverlays.length})
+                </div>
+                {animationOverlays.map((overlay, index) => (
+                  <div
+                    key={`animation-${overlay.id}`}
+                    className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer bg-[#2a1b23] hover:bg-[#322128] ${draggedAnimationIndex === index ? 'opacity-50 scale-95' : ''} ${dragOverAnimationIndex === index && draggedAnimationIndex !== null && draggedAnimationIndex !== index
+                      ? 'border-2 border-[#8088e2] bg-[#3a2830]' : ''
+                      }`}
+                    onClick={() => onAnimationOverlaySelect && onAnimationOverlaySelect(overlay.id)}
+                    onContextMenu={(e) => handleContextMenu(e, overlay.id, 'animation')}
+                    {...(!isMobile && {
+                      draggable: true,
+                      onDragStart: (e) => handleAnimationDragStart(e, index),
+                      onDragOver: (e) => handleAnimationDragOver(e, index),
+                      onDragLeave: handleAnimationDragLeave,
+                      onDrop: (e) => handleAnimationDrop(e, index),
+                      onDragEnd: handleAnimationDragEnd
+                    })}
+                  >
+                    {/* Drag Handle - Only show on desktop */}
+                    {!isMobile && (
+                      <div className="flex flex-col mr-3 ms-1 cursor-move">
+                        <img src={Dots} alt="Drag to reorder" className="opacity-60 hover:opacity-100 transition-opacity" />
+                      </div>
+                    )}
+
+                    {/* Animation Thumbnail */}
+                    <div className={`${isMobile ? 'w-12 h-12' : 'w-10 h-12'
+                      } bg-purple-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
+                      <img
+                        src={overlay.gifUrl || overlay.url}
+                        alt={overlay.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+
+                    {/* Animation Name */}
+                    <span className={`text-white font-medium flex-1 ${isMobile ? 'text-sm' : 'text-sm'
+                      }`}>
+                      {overlay.name || 'Animation Overlay'}
+                    </span>
+
+                    {/* Layer Number (Z-Index) */}
+                    <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
+                      <span className="text-white text-xs font-bold">{index + 1}</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="text-white text-xs opacity-50 mb-2 px-2 border-b border-gray-600 pb-1">
+                  Media Layers ({uploadedMedia.length})
+                </div>
+              </>
+            )}
+
+            {/* Media Layers */}
             {uploadedMedia && uploadedMedia.length > 0 ? (
               uploadedMedia.map((media, index) => (
                 <div
@@ -226,6 +364,7 @@ const SecondSidebar = ({
                       ? 'border-2 border-[#8088e2] bg-[#2a2830]' : ''
                     }`}
                   onClick={() => onMediaSelect(index)}
+                  onContextMenu={(e) => handleContextMenu(e, index, 'media')}
                   {...(!isMobile && {
                     draggable: true,
                     onDragStart: (e) => handleLayerDragStart(e, index),
@@ -317,6 +456,25 @@ const SecondSidebar = ({
               ))
             )}
           </div>
+        </div>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div
+          className="fixed bg-white rounded-sm shadow-lg border border-gray-200 py-1 min-w-[120px] z-[9999]"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+          }}
+          onMouseLeave={hideContextMenu}
+        >
+          <button
+            className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+            onClick={() => handleContextMenuAction('remove')}
+          >
+            <span>Remove</span>
+          </button>
         </div>
       )}
     </div>

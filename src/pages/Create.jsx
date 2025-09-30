@@ -17,6 +17,8 @@ const Create = () => {
   const [activeTool, setActiveTool] = useState(null);
   // 2. New state add karein activeTab ke liye
   const [activeTab, setActiveTab] = useState("Upload");
+  // Animation overlay state
+  const [animationOverlays, setAnimationOverlays] = useState([]);
 
   const handleMediaUpload = (files) => {
     try {
@@ -119,6 +121,65 @@ const Create = () => {
       prev.filter((_, index) => index !== indexToRemove)
     );
   };
+
+  // Animation overlay handlers
+  const handleAnimationOverlaySelect = (overlayId) => {
+    // Handle animation overlay selection if needed
+    console.log('Selected animation overlay:', overlayId);
+  };
+
+  const handleAnimationOverlayReorder = (newAnimationOrder) => {
+    setAnimationOverlays(newAnimationOrder);
+  };
+
+  const handleAnimationOverlayRemove = (overlayId) => {
+    setAnimationOverlays((prev) => prev.filter(overlay => overlay.id !== overlayId));
+  };
+
+  // Listen for animation overlay additions from MainCanvas
+  useEffect(() => {
+    const handleAnimationOverlayAdded = (event) => {
+      const { overlay } = event.detail;
+      if (overlay) {
+        // Only add if it doesn't already exist
+        setAnimationOverlays(prev => {
+          const exists = prev.some(item => item.id === overlay.id);
+          if (!exists) {
+            return [...prev, overlay];
+          }
+          return prev;
+        });
+      }
+    };
+
+    window.addEventListener("animationOverlayAdded", handleAnimationOverlayAdded);
+    return () => {
+      window.removeEventListener("animationOverlayAdded", handleAnimationOverlayAdded);
+    };
+  }, []);
+
+  // Handle effect selection for animation overlays
+  const handleEffectSelectWithOverlay = (effect, selectedIndex) => {
+    setActiveEffect(effect);
+    
+    // Only add to animation overlays list if no image is selected
+    // When an image is selected, the MainCanvas component will handle it
+    if (effect && effect.gif && (selectedMediaIndex === null || selectedMediaIndex === 0)) {
+      const newOverlay = {
+        id: Date.now() + Math.random(),
+        name: effect.name || 'Animation Overlay',
+        gifUrl: effect.gif,
+        url: effect.gif,
+        type: 'animation'
+      };
+      setAnimationOverlays(prev => [...prev, newOverlay]);
+    }
+    
+    // Auto-switch to canvas after selecting effect on mobile
+    if (window.innerWidth < 768) {
+      setActiveMobilePanel("canvas");
+    }
+  };
   return (
     <div className="h-screen bg-black">
       {/* Desktop Layout */}
@@ -135,6 +196,10 @@ const Create = () => {
           onMediaReorder={handleMediaReorder}
           activeTab={activeTab}
           onTabChange={handleTabChange}
+          animationOverlays={animationOverlays}
+          onAnimationOverlaySelect={handleAnimationOverlaySelect}
+          onAnimationOverlayReorder={handleAnimationOverlayReorder}
+          onAnimationOverlayRemove={handleAnimationOverlayRemove}
         />
         <MainCanvas
           uploadedMedia={uploadedMedia}
@@ -143,10 +208,12 @@ const Create = () => {
           onMediaReorder={handleMediaReorder}
           activeEffect={activeEffect}
           onRemoveMedia={handleRemoveMedia}
+          animationOverlays={animationOverlays}
+          onAnimationOverlayRemove={handleAnimationOverlayRemove}
         />
         <RightSidebar
           onExport={handleExport}
-          onEffectSelect={handleEffectSelect}
+          onEffectSelect={handleEffectSelectWithOverlay}
           selectedMediaIndex={selectedMediaIndex}
         />
       </div>
@@ -183,6 +250,10 @@ const Create = () => {
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 isMobile={true}
+                animationOverlays={animationOverlays}
+                onAnimationOverlaySelect={handleAnimationOverlaySelect}
+                onAnimationOverlayReorder={handleAnimationOverlayReorder}
+                onAnimationOverlayRemove={handleAnimationOverlayRemove}
               />
             </div>
           )}
@@ -196,11 +267,13 @@ const Create = () => {
                 onMediaReorder={handleMediaReorder}
                 activeEffect={activeEffect} // 🔥 KEY CHANGE: Pass activeEffect to mobile canvas
                 isMobile={true}
+                animationOverlays={animationOverlays}
+                onAnimationOverlayRemove={handleAnimationOverlayRemove}
               />
               <RightSidebar
                 isMobile={true}
                 onExport={handleExport}
-                onEffectSelect={handleEffectSelect}
+                onEffectSelect={handleEffectSelectWithOverlay}
                 selectedMediaIndex={selectedMediaIndex}
               />
             </div>
@@ -211,7 +284,7 @@ const Create = () => {
               <RightSidebar
                 isMobile={true}
                 onExport={handleExport}
-                onEffectSelect={handleEffectSelect} // 🔥 KEY CHANGE: Use handleEffectSelect instead of setActiveEffect
+                onEffectSelect={handleEffectSelectWithOverlay} // 🔥 KEY CHANGE: Use handleEffectSelectWithOverlay
               />
             </div>
           )}

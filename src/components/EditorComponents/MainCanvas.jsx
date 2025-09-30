@@ -30,6 +30,8 @@ const MainCanvas = ({
   activeEffect,
   isMobile = false,
   onRemoveMedia,
+  animationOverlays = [],
+  onAnimationOverlayRemove,
 }) => {
   const getAbsXY = (node) => {
     if (!node) return { x: 0, y: 0 };
@@ -1511,6 +1513,24 @@ const MainCanvas = ({
     setCanvasEffects((prev) => [...prev, newEf]);
   };
 
+  // Sync animation overlays with canvasEffects
+  useEffect(() => {
+    if (animationOverlays && animationOverlays.length > 0) {
+      const newCanvasEffects = animationOverlays.map(overlay => ({
+        id: overlay.id,
+        gifUrl: overlay.gifUrl || overlay.url,
+        x: overlay.x || (canvasSize.width - 130) / 2,
+        y: overlay.y || (canvasSize.height - 130) / 2,
+        width: overlay.width || 130,
+        height: overlay.height || 130,
+        isDragging: false,
+      }));
+      setCanvasEffects(newCanvasEffects);
+    } else {
+      setCanvasEffects([]);
+    }
+  }, [animationOverlays, canvasSize]);
+
   // If activeEffect prop changes, add it to canvas once (prevents duplicates)
   useEffect(() => {
     if (!activeEffect) return;
@@ -1906,6 +1926,10 @@ const MainCanvas = ({
 
             // Remove the small effect icon from canvas (if you want to keep it, change this)
             setCanvasEffects((prev) => prev.filter((x) => x.id !== ef.id));
+            // Also remove from animation overlays if it exists there
+            if (onAnimationOverlayRemove) {
+              onAnimationOverlayRemove(ef.id);
+            }
             // Hide the hint once successfully dropped
             setShowEffectHint(false);
           } else {
@@ -3110,6 +3134,10 @@ const MainCanvas = ({
                       if (next.length === 0) setShowEffectHint(false);
                       return next;
                     });
+                    // Also remove from animation overlays if it exists there
+                    if (onAnimationOverlayRemove) {
+                      onAnimationOverlayRemove(ef.id);
+                    }
                   }}
                 >
                   <X className="w-4 h-4 text-gray-600" strokeWidth={3} />
