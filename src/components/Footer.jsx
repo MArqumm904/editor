@@ -90,14 +90,7 @@ const Footer = () => {
                   to={"/create"}
                   className="text-white/90 hover:text-white transition-colors"
                 >
-                  <div>
-                    <span className="font-semibold">Edit Your Photos</span>
-                    <p className="text-xs text-white/70 leading-snug">
-                      Explore creative stickers, moving pictures, video
-                      backgrounds, and overlays designed for websites, social
-                      media, and storytelling.
-                    </p>
-                  </div>
+                  Create
                 </Link>
               </li>
             </ul>
@@ -106,12 +99,14 @@ const Footer = () => {
           {/* Contact Section */}
           <div className="lg:col-span-1">
             <h3 className="text-lg lg:text-xl font-semibold mb-4 lg:mb-6">
-              Contact
+              Edit Your Photos
             </h3>
             <div className="text-sm lg:text-base text-white/90 space-y-2">
-              <p>+12 123-3456-5675</p>
-              <p>contact@domain.com</p>
-              <p>example@gmail.com</p>
+              <p className="text-white/90 text-sm lg:text-base leading-relaxed">
+                Explore creative stickers, moving pictures, video backgrounds,
+                and overlays designed for websites, social media, and
+                storytelling.
+              </p>
             </div>
           </div>
         </div>
