@@ -16,7 +16,7 @@ const SecondSidebar = ({
   animationOverlays = [],
   onAnimationOverlaySelect,
   onAnimationOverlayReorder,
-  onAnimationOverlayRemove
+  onAnimationOverlayRemove,
 }) => {
   // const [activeTab, setActiveTab] = useState("Upload");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -29,7 +29,7 @@ const SecondSidebar = ({
     x: 0,
     y: 0,
     targetId: null,
-    type: null // 'media' or 'animation'
+    type: null, // 'media' or 'animation'
   });
   const fileInputRef = useRef(null);
 
@@ -51,12 +51,13 @@ const SecondSidebar = ({
   const handleFileUpload = (files) => {
     try {
       const fileArray = Array.from(files);
-      const mediaFiles = fileArray.filter(file =>
-        file &&
-        file.type &&
-        (file.type.startsWith('image/') ||
-          file.type.startsWith('video/') ||
-          file.type === 'image/gif')
+      const mediaFiles = fileArray.filter(
+        (file) =>
+          file &&
+          file.type &&
+          (file.type.startsWith("image/") ||
+            file.type.startsWith("video/") ||
+            file.type === "image/gif")
       );
 
       if (mediaFiles.length > 0) {
@@ -98,13 +99,13 @@ const SecondSidebar = ({
 
   const handleLayerDragStart = (e, index) => {
     setDraggedLayerIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', index.toString());
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", index.toString());
   };
 
   const handleLayerDragOver = (e, index) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
     setDragOverIndex(index);
   };
 
@@ -135,13 +136,13 @@ const SecondSidebar = ({
   // Animation overlay drag handlers
   const handleAnimationDragStart = (e, index) => {
     setDraggedAnimationIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', index.toString());
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/html", index.toString());
   };
 
   const handleAnimationDragOver = (e, index) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
     setDragOverAnimationIndex(index);
   };
 
@@ -178,7 +179,7 @@ const SecondSidebar = ({
       x: e.clientX,
       y: e.clientY,
       targetId,
-      type
+      type,
     });
   };
 
@@ -188,21 +189,22 @@ const SecondSidebar = ({
 
   const handleContextMenuAction = (action) => {
     const { targetId, type } = contextMenu;
-    
-    if (type === 'animation' && onAnimationOverlayRemove) {
-      if (action === 'remove') {
+
+    if (type === "animation" && onAnimationOverlayRemove) {
+      if (action === "remove") {
         onAnimationOverlayRemove(targetId);
       }
     }
-    
+
     hideContextMenu();
   };
 
   return (
-    <div className={`bg-[#121018] rounded-lg ${isMobile
-      ? 'w-full h-full p-4'
-      : 'w-72 p-4 my-2'
-      }`}>
+    <div
+      className={`bg-[#121018] rounded-lg ${
+        isMobile ? "w-full h-full p-4" : "w-72 p-4 my-2"
+      }`}
+    >
       {/* Header - Only show on desktop or when mobile needs it */}
       {!isMobile && (
         <h1 className="text-white text-xl font-bold mb-4">Cinemaglow</h1>
@@ -212,19 +214,21 @@ const SecondSidebar = ({
       <div className="flex mb-4">
         <div className="flex bg-[#8088e2] rounded-2xl overflow-hidden p-1 w-full">
           <button
-            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${activeTab === "Layer"
-              ? "bg-[#fff] text-black"
-              : "text-[#ffffff] hover:text-white"
-              }`}
+            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
+              activeTab === "Layer"
+                ? "bg-[#fff] text-black"
+                : "text-[#ffffff] hover:text-white"
+            }`}
             onClick={() => onTabChange("Layer")}
           >
             Layer {uploadedMedia.length > 0 && `(${uploadedMedia.length})`}
           </button>
           <button
-            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${activeTab === "Upload"
-              ? "bg-[#fff] text-black"
-              : "text-[#ffffff] hover:text-white"
-              }`}
+            className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
+              activeTab === "Upload"
+                ? "bg-[#fff] text-black"
+                : "text-[#ffffff] hover:text-white"
+            }`}
             onClick={() => onTabChange("Upload")}
           >
             Upload
@@ -248,11 +252,13 @@ const SecondSidebar = ({
 
           {/* Media Import Zone */}
           <div
-            className={`border-2 border-dashed rounded-2xl p-8 text-center ${isMobile ? 'h-[22rem]' : 'h-[33rem]'
-              } flex flex-col justify-center cursor-pointer transition-all duration-200 ${isDragOver
+            className={`border-2 border-dashed rounded-2xl p-8 text-center ${
+              isMobile ? "h-[22rem]" : "h-[33rem]"
+            } flex flex-col justify-center cursor-pointer transition-all duration-200 ${
+              isDragOver
                 ? "border-[#8088e2] bg-[#1a1a2e] scale-105"
                 : "border-white hover:border-[#8088e2] hover:bg-[#1a1a2e]"
-              }`}
+            }`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -268,9 +274,8 @@ const SecondSidebar = ({
               {isDragOver
                 ? "Drop your media here!"
                 : isMobile
-                  ? "Tap to Upload Media From Your Device"
-                  : "Drag & Drop Media From Your Device To Import"
-              }
+                ? "Tap to Upload Media From Your Device"
+                : "Drag & Drop Media From Your Device To Import"}
             </p>
 
             <p className="text-white text-xs opacity-80">JPG GIF Video</p>
@@ -288,10 +293,15 @@ const SecondSidebar = ({
         </div>
       ) : (
         /* Layer Content */
-        <div className={`max-w-full bg-[#17151d] rounded-xl p-2 ${isMobile ? 'h-96' : 'h-[38rem]'
-          }`}>
+        <div
+          className={`max-w-full bg-[#17151d] rounded-xl p-2 ${
+            isMobile ? "h-96" : "h-[38rem]"
+          }`}
+        >
           <div className="text-white text-xs opacity-70 mb-3 px-2">
-            {isMobile ? "Tap to select • Long press to reorder" : "💡 Drag layers to reorder them. Higher numbers appear on top."}
+            {isMobile
+              ? "Tap to select • Long press to reorder"
+              : "💡 Drag layers to reorder them. Higher numbers appear on top."}
           </div>
           <div className="space-y-3 overflow-y-auto max-h-full">
             {/* Animation Overlay Layers */}
@@ -303,30 +313,50 @@ const SecondSidebar = ({
                 {animationOverlays.map((overlay, index) => (
                   <div
                     key={`animation-${overlay.id}`}
-                    className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer bg-[#2a1b23] hover:bg-[#322128] ${draggedAnimationIndex === index ? 'opacity-50 scale-95' : ''} ${dragOverAnimationIndex === index && draggedAnimationIndex !== null && draggedAnimationIndex !== index
-                      ? 'border-2 border-[#8088e2] bg-[#3a2830]' : ''
-                      }`}
-                    onClick={() => onAnimationOverlaySelect && onAnimationOverlaySelect(overlay.id)}
-                    onContextMenu={(e) => handleContextMenu(e, overlay.id, 'animation')}
+                    className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer bg-[#2a1b23] hover:bg-[#322128] ${
+                      draggedAnimationIndex === index
+                        ? "opacity-50 scale-95"
+                        : ""
+                    } ${
+                      dragOverAnimationIndex === index &&
+                      draggedAnimationIndex !== null &&
+                      draggedAnimationIndex !== index
+                        ? "border-2 border-[#8088e2] bg-[#3a2830]"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      onAnimationOverlaySelect &&
+                      onAnimationOverlaySelect(overlay.id)
+                    }
+                    onContextMenu={(e) =>
+                      handleContextMenu(e, overlay.id, "animation")
+                    }
                     {...(!isMobile && {
                       draggable: true,
                       onDragStart: (e) => handleAnimationDragStart(e, index),
                       onDragOver: (e) => handleAnimationDragOver(e, index),
                       onDragLeave: handleAnimationDragLeave,
                       onDrop: (e) => handleAnimationDrop(e, index),
-                      onDragEnd: handleAnimationDragEnd
+                      onDragEnd: handleAnimationDragEnd,
                     })}
                   >
                     {/* Drag Handle - Only show on desktop */}
                     {!isMobile && (
                       <div className="flex flex-col mr-3 ms-1 cursor-move">
-                        <img src={Dots} alt="Drag to reorder" className="opacity-60 hover:opacity-100 transition-opacity" />
+                        <img
+                          src={Dots}
+                          alt="Drag to reorder"
+                          className="opacity-60 hover:opacity-100 transition-opacity"
+                        />
                       </div>
                     )}
 
                     {/* Animation Thumbnail */}
-                    <div className={`${isMobile ? 'w-12 h-12' : 'w-10 h-12'
-                      } bg-purple-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
+                    <div
+                      className={`${
+                        isMobile ? "w-12 h-12" : "w-10 h-12"
+                      } bg-purple-400 rounded mr-3 flex-shrink-0 overflow-hidden`}
+                    >
                       <img
                         src={overlay.gifUrl || overlay.url}
                         alt={overlay.name}
@@ -335,14 +365,19 @@ const SecondSidebar = ({
                     </div>
 
                     {/* Animation Name */}
-                    <span className={`text-white font-medium flex-1 ${isMobile ? 'text-sm' : 'text-sm'
-                      }`}>
-                      {overlay.name || 'Animation Overlay'}
+                    <span
+                      className={`text-white font-medium flex-1 ${
+                        isMobile ? "text-sm" : "text-sm"
+                      }`}
+                    >
+                      {overlay.name || "Animation Overlay"}
                     </span>
 
                     {/* Layer Number (Z-Index) */}
                     <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
-                      <span className="text-white text-xs font-bold">{index + 1}</span>
+                      <span className="text-white text-xs font-bold">
+                        {index + 1}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -353,108 +388,139 @@ const SecondSidebar = ({
             )}
 
             {/* Media Layers */}
-            {uploadedMedia && uploadedMedia.length > 0 ? (
-              uploadedMedia.map((media, index) => (
-                <div
-                  key={index}
-                  className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer ${onMediaSelect && uploadedMedia && uploadedMedia.length > 0 && index === 0
-                    ? "bg-[#8088e2] border-2 border-white"
-                    : "bg-[#1d1b23] hover:bg-[#222128]"
-                    } ${draggedLayerIndex === index ? 'opacity-50 scale-95' : ''} ${dragOverIndex === index && draggedLayerIndex !== null && draggedLayerIndex !== index
-                      ? 'border-2 border-[#8088e2] bg-[#2a2830]' : ''
+            {uploadedMedia && uploadedMedia.length > 0
+              ? uploadedMedia.map((media, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                      onMediaSelect &&
+                      uploadedMedia &&
+                      uploadedMedia.length > 0 &&
+                      index === 0
+                        ? "bg-[#8088e2]"
+                        : "bg-[#1d1b23] hover:bg-[#222128]"
+                    } ${
+                      draggedLayerIndex === index ? "opacity-50 scale-95" : ""
+                    } ${
+                      dragOverIndex === index &&
+                      draggedLayerIndex !== null &&
+                      draggedLayerIndex !== index
+                        ? "border-2 border-[#8088e2] bg-[#2a2830]"
+                        : ""
                     }`}
-                  onClick={() => onMediaSelect(index)}
-                  onContextMenu={(e) => handleContextMenu(e, index, 'media')}
-                  {...(!isMobile && {
-                    draggable: true,
-                    onDragStart: (e) => handleLayerDragStart(e, index),
-                    onDragOver: (e) => handleLayerDragOver(e, index),
-                    onDragLeave: handleLayerDragLeave,
-                    onDrop: (e) => handleLayerDrop(e, index),
-                    onDragEnd: handleLayerDragEnd
-                  })}
-                >
-                  {/* Drag Handle - Only show on desktop */}
-                  {!isMobile && (
-                    <div className="flex flex-col mr-3 ms-1 cursor-move">
-                      <img src={Dots} alt="Drag to reorder" className="opacity-60 hover:opacity-100 transition-opacity" />
-                    </div>
-                  )}
-
-                  {/* Thumbnail */}
-                  <div className={`${isMobile ? 'w-12 h-12' : 'w-10 h-12'
-                    } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
-                    {media && media.type && media.type.startsWith('image/') ? (
-                      <img
-                        src={media.preview}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : media && media.type && media.type.startsWith('video/') ? (
-                      <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
-                        <Play className="w-5 h-5 text-white" />
-                      </div>
-                    ) : (
-                      <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
-                        <Play className="w-5 h-5 text-white" />
+                    onClick={() => onMediaSelect(index)}
+                    onContextMenu={(e) => handleContextMenu(e, index, "media")}
+                    {...(!isMobile && {
+                      draggable: true,
+                      onDragStart: (e) => handleLayerDragStart(e, index),
+                      onDragOver: (e) => handleLayerDragOver(e, index),
+                      onDragLeave: handleLayerDragLeave,
+                      onDrop: (e) => handleLayerDrop(e, index),
+                      onDragEnd: handleLayerDragEnd,
+                    })}
+                  >
+                    {/* Drag Handle - Only show on desktop */}
+                    {!isMobile && (
+                      <div className="flex flex-col mr-3 ms-1 cursor-move">
+                        <img
+                          src={Dots}
+                          alt="Drag to reorder"
+                          className="opacity-60 hover:opacity-100 transition-opacity"
+                        />
                       </div>
                     )}
-                  </div>
 
-                  {/* Layer Name */}
-                  <span className={`text-white font-medium flex-1 ${isMobile ? 'text-sm' : 'text-sm'
-                    }`}>
-                    {media && media.name ? (
-                      isMobile && media.name.length > 15
-                        ? media.name.substring(0, 15) + "..."
-                        : media.name
-                    ) : 'Unknown Media'}
-                  </span>
-
-                  {/* Layer Number (Z-Index) */}
-                  <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
-                    <span className="text-white text-xs font-bold">{index + 1}</span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              layers.map((layer) => (
-                <div
-                  key={layer.id}
-                  className="flex items-center p-2 bg-[#1d1b23] rounded-xl hover:bg-[#222128] transition-colors cursor-pointer"
-                >
-                  {/* Drag Handle - Only show on desktop */}
-                  {!isMobile && (
-                    <div className="flex flex-col mr-3 ms-1">
-                      <img src={Dots} alt="" />
+                    {/* Thumbnail */}
+                    <div
+                      className={`${
+                        isMobile ? "w-12 h-12" : "w-10 h-12"
+                      } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}
+                    >
+                      {media &&
+                      media.type &&
+                      media.type.startsWith("image/") ? (
+                        <img
+                          src={media.preview}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : media &&
+                        media.type &&
+                        media.type.startsWith("video/") ? (
+                        <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
+                          <Play className="w-5 h-5 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
+                          <Play className="w-5 h-5 text-white" />
+                        </div>
+                      )}
                     </div>
-                  )}
 
-                  {/* Thumbnail */}
-                  <div className={`${isMobile ? 'w-12 h-12' : 'w-10 h-12'
-                    } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}>
-                    <img
-                      src="https://images.pexels.com/photos/23897250/pexels-photo-23897250.jpeg?_gl=1*1msubz2*_ga*OTc3NzE2NDMwLjE3NTQzMjc5MTY.*_ga_8JE65Q40S6*czE3NTUyODkxNjkkbzIkZzEkdDE3NTUyODkxOTgkajMxJGwwJGgw"
-                      alt=""
-                    />
+                    {/* Layer Name */}
+                    <span
+                      className={`text-white font-medium flex-1 ${
+                        isMobile ? "text-sm" : "text-sm"
+                      }`}
+                    >
+                      {media && media.name
+                        ? isMobile && media.name.length > 15
+                          ? media.name.substring(0, 15) + "..."
+                          : media.name
+                        : "Unknown Media"}
+                    </span>
+
+                    {/* Layer Number (Z-Index) */}
+                    <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
+                      <span className="text-white text-xs font-bold">
+                        {index + 1}
+                      </span>
+                    </div>
                   </div>
+                ))
+              : layers.map((layer) => (
+                  <div
+                    key={layer.id}
+                    className="flex items-center p-2 bg-[#1d1b23] rounded-xl hover:bg-[#222128] transition-colors cursor-pointer"
+                  >
+                    {/* Drag Handle - Only show on desktop */}
+                    {!isMobile && (
+                      <div className="flex flex-col mr-3 ms-1">
+                        <img src={Dots} alt="" />
+                      </div>
+                    )}
 
-                  {/* Layer Name */}
-                  <span className={`text-white font-medium ${isMobile ? 'text-sm' : 'text-sm'
-                    }`}>
-                    {isMobile && layer.name.length > 15
-                      ? layer.name.substring(0, 15) + "..."
-                      : layer.name
-                    }
-                  </span>
+                    {/* Thumbnail */}
+                    <div
+                      className={`${
+                        isMobile ? "w-12 h-12" : "w-10 h-12"
+                      } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}
+                    >
+                      <img
+                        src="https://images.pexels.com/photos/23897250/pexels-photo-23897250.jpeg?_gl=1*1msubz2*_ga*OTc3NzE2NDMwLjE3NTQzMjc5MTY.*_ga_8JE65Q40S6*czE3NTUyODkxNjkkbzIkZzEkdDE3NTUyODkxOTgkajMxJGwwJGgw"
+                        alt=""
+                      />
+                    </div>
 
-                  {/* Layer Number (Z-Index) */}
-                  <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
-                    <span className="text-white text-xs font-bold">{layer.id}</span>
+                    {/* Layer Name */}
+                    <span
+                      className={`text-white font-medium ${
+                        isMobile ? "text-sm" : "text-sm"
+                      }`}
+                    >
+                      {isMobile && layer.name.length > 15
+                        ? layer.name.substring(0, 15) + "..."
+                        : layer.name}
+                    </span>
+
+                    {/* Layer Number (Z-Index) */}
+                    <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
+                      <span className="text-white text-xs font-bold">
+                        {layer.id}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))}
           </div>
         </div>
       )}
@@ -471,7 +537,7 @@ const SecondSidebar = ({
         >
           <button
             className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-            onClick={() => handleContextMenuAction('remove')}
+            onClick={() => handleContextMenuAction("remove")}
           >
             <span>Remove</span>
           </button>

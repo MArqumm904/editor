@@ -148,6 +148,7 @@ const MainCanvas = ({
   const [zoomMode, setZoomMode] = useState(null); // 'zoom-in' or 'zoom-out'
   const [imageZoomLevels, setImageZoomLevels] = useState({}); // {imageId: {scale: 1, offsetX: 0, offsetY: 0}}
   const [exportLoading, setExportLoading] = useState(false);
+  const [copiedImageData, setCopiedImageData] = useState(null);
   const A4_WIDTH = 1123;
   const A4_HEIGHT = 794;
 
@@ -158,9 +159,10 @@ const MainCanvas = ({
   }, []);
 
   // === NEW: Eraser mode functions ===
+  // === NEW: Eraser mode functions ===
   const enterEraserMode = useCallback(() => {
     const targetId = selectedMediaIndex;
-    if (!targetId || targetId === 0) return; // must be a non-base selected image
+    if (targetId === null || targetId === undefined) return; // must have a selected image
 
     const target = konvaImages.find((img) => img.id === targetId);
     if (!target || !target.konvaImg) return;
@@ -1252,11 +1254,10 @@ const MainCanvas = ({
     };
   }, []); // ✅ No dependencies needed here
 
-  // Arrow key navigation ke liye ye useEffect add karein
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Only handle arrow keys when an image is selected (not base image)
-      if (!selectedMediaIndex || selectedMediaIndex === 0) return;
+      // Only handle arrow keys when an image is selected (ALL IMAGES)
+      if (selectedMediaIndex === null) return;
 
       // Check if any input/textarea is focused to avoid conflicts
       if (
@@ -1311,6 +1312,174 @@ const MainCanvas = ({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [selectedMediaIndex, konvaImages, canvasSize]);
+
+  // Keyboard shortcuts for copy, paste, delete
+  useEffect(() => {
+    const handleKeyboardShortcuts = (e) => {
+      // Ignore if typing in input/textarea
+      if (
+        document.activeElement.tagName === "INPUT" ||
+        document.activeElement.tagName === "TEXTAREA"
+      )
+        return;
+
+      // Only work on overlay images (not base image at index 0)
+      if (selectedMediaIndex === null || selectedMediaIndex === 0) return;
+
+      const selectedImage = konvaImages.find(
+        (img) => img.id === selectedMediaIndex
+      );
+      if (!selectedImage) return;
+
+      // DELETE key - Remove image
+      if (e.key === "Delete") {
+        e.preventDefault();
+        handleDeleteImage(selectedMediaIndex);
+        return;
+      }
+
+      // Ctrl+D - Duplicate image
+      if ((e.ctrlKey || e.metaKey) && e.key === "d") {
+        e.preventDefault();
+        handleDuplicateImage(selectedMediaIndex);
+        return;
+      }
+
+      // Ctrl+C - Copy image
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault();
+        handleCopyImage(selectedMediaIndex);
+        return;
+      }
+
+      // Ctrl+V - Paste image
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        e.preventDefault();
+        handlePasteImage();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+    return () => window.removeEventListener("keydown", handleKeyboardShortcuts);
+  }, [selectedMediaIndex, konvaImages]);
+
+  const handleDeleteImage = useCallback(
+    (imageId) => {
+      if (imageId === 0) return; // Don't delete base image
+
+      setKonvaImages((prev) => prev.filter((img) => img.id !== imageId));
+      setDraggedImages((prev) =>
+        prev.filter((img) => img.originalIndex !== imageId)
+      );
+
+      if (onRemoveMedia) {
+        onRemoveMedia(imageId);
+      }
+
+      if (selectedMediaIndex === imageId) {
+        setSelectedMediaIndex(null);
+      }
+    },
+    [selectedMediaIndex, onRemoveMedia]
+  );
+
+  // Duplicate image function
+  const handleDuplicateImage = useCallback(
+    (imageId) => {
+      if (imageId === 0) return; // Don't duplicate base image
+
+      const imageToDuplicate = konvaImages.find((img) => img.id === imageId);
+      const draggedImageToDuplicate = draggedImages.find(
+        (img) => img.originalIndex === imageId
+      );
+
+      if (imageToDuplicate && draggedImageToDuplicate) {
+        const newId = Math.max(...konvaImages.map((img) => img.id)) + 1;
+
+        // Create new konva image with offset position
+        const newKonvaImage = {
+          ...imageToDuplicate,
+          id: newId,
+          x: imageToDuplicate.x + 20,
+          y: imageToDuplicate.y + 20,
+        };
+
+        // Create new dragged image
+        const newDraggedImage = {
+          ...draggedImageToDuplicate,
+          originalIndex: newId,
+          x: draggedImageToDuplicate.x + 20,
+          y: draggedImageToDuplicate.y + 20,
+        };
+
+        setKonvaImages((prev) => [...prev, newKonvaImage]);
+        setDraggedImages((prev) => [...prev, newDraggedImage]);
+
+        // Select the new duplicated image
+        setSelectedMediaIndex(newId);
+      }
+    },
+    [konvaImages, draggedImages]
+  );
+
+  // Copy image function
+  const handleCopyImage = useCallback(
+    (imageId) => {
+      if (imageId === 0) return; // Don't copy base image
+
+      const imageToCopy = konvaImages.find((img) => img.id === imageId);
+      const draggedImageToCopy = draggedImages.find(
+        (img) => img.originalIndex === imageId
+      );
+
+      if (imageToCopy && draggedImageToCopy) {
+        setCopiedImageData({
+          konvaImage: imageToCopy,
+          draggedImage: draggedImageToCopy,
+        });
+
+        // Optional: Show toast notification
+        console.log("Image copied to clipboard");
+      }
+    },
+    [konvaImages, draggedImages]
+  );
+
+  // Paste image function
+  const handlePasteImage = useCallback(() => {
+    if (!copiedImageData) {
+      console.log("No image in clipboard");
+      return;
+    }
+
+    const newId = Math.max(...konvaImages.map((img) => img.id)) + 1;
+
+    // Create new konva image with offset position
+    const newKonvaImage = {
+      ...copiedImageData.konvaImage,
+      id: newId,
+      x: copiedImageData.konvaImage.x + 30,
+      y: copiedImageData.konvaImage.y + 30,
+    };
+
+    // Create new dragged image
+    const newDraggedImage = {
+      ...copiedImageData.draggedImage,
+      originalIndex: newId,
+      x: copiedImageData.draggedImage.x + 30,
+      y: copiedImageData.draggedImage.y + 30,
+    };
+
+    setKonvaImages((prev) => [...prev, newKonvaImage]);
+    setDraggedImages((prev) => [...prev, newDraggedImage]);
+
+    // Select the new pasted image
+    setSelectedMediaIndex(newId);
+
+    // Optional: Show toast notification
+    console.log("Image pasted");
+  }, [copiedImageData, konvaImages]);
 
   // Helper function to update image position
   const updateImagePosition = (imageId, newX, newY) => {
@@ -1567,8 +1736,8 @@ const MainCanvas = ({
       // already added this exact gif recently; skip
       return;
     }
-    if (selectedMediaIndex != null && selectedMediaIndex !== 0) {
-      // Apply effect to selected image
+    if (selectedMediaIndex != null) {
+      // Apply effect to selected image (INCLUDING BASE IMAGE)
       setDraggedImages((prev) =>
         prev.map((img) =>
           img.originalIndex === selectedMediaIndex
@@ -1584,8 +1753,6 @@ const MainCanvas = ({
         )
       );
       lastActiveEffectRef.current = gifUrl;
-      // Optionally, clear activeEffect after applying
-      // setActiveEffect(null); // Uncomment if you want to clear after apply
     } else {
       addEffectToCanvas(activeEffect);
       lastActiveEffectRef.current = gifUrl;
@@ -1799,7 +1966,7 @@ const MainCanvas = ({
     }
   }, [uploadedMedia]);
 
-  // Attach/clear Transformer based on selection (non-base images only)
+  // Attach/clear Transformer based on selection (ALL IMAGES INCLUDING BASE)
   useEffect(() => {
     if (!transformerRef.current) return;
 
@@ -1819,8 +1986,8 @@ const MainCanvas = ({
       }
     }
 
-    // If we have individual selection (not base image)
-    if (selectedMediaIndex != null && selectedMediaIndex !== 0) {
+    // If we have individual selection (ANY IMAGE INCLUDING BASE)
+    if (selectedMediaIndex != null) {
       const selectedNode = layer.findOne(`#image-${selectedMediaIndex}`);
       if (selectedNode) {
         transformerRef.current.nodes([selectedNode]);
@@ -2128,7 +2295,6 @@ const MainCanvas = ({
     drawWarpedImage();
   }, [drawWarpedImage]);
 
-  // Broadcast warp mode status so LeftSidebar can highlight the Skew icon
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("warpModeChanged", {
@@ -2137,12 +2303,11 @@ const MainCanvas = ({
     );
   }, [warpMode.active]);
 
-  // Enter warp mode from external trigger (e.g., LeftSidebar Skew icon)
   useEffect(() => {
     const handleEnterWarp = () => {
       if (warpMode.active) return;
       const targetId = selectedMediaIndex;
-      if (targetId == null || targetId === 0) return; // must be a non-base selected image
+      if (targetId === null || targetId === undefined) return;
       const target = konvaImages.find((img) => img.id === targetId);
       if (!target || !target.konvaImg) return;
       const cornersInit = [
@@ -2197,7 +2362,7 @@ const MainCanvas = ({
   // Handle drag selection start
   const handleSelectionStart = (e) => {
     // Only start selection if clicking on empty stage area AND within canvas boundaries AND base image exists
-    if (e.target === e.target.getStage() && konvaImages[0]?.konvaImg) {
+    if (e.target === e.target.getStage() && konvaImages.length > 0) {
       const stage = e.target.getStage();
       const pos = stage.getPointerPosition();
 
@@ -2322,7 +2487,7 @@ const MainCanvas = ({
         >
           {/* Fixed Background Layer - Base Image */}
           <Layer>
-            {konvaImages[0]?.konvaImg && (
+            {/* {konvaImages[0]?.konvaImg && (
               <KonvaImage
                 image={konvaImages[0].konvaImg}
                 x={0}
@@ -2331,7 +2496,7 @@ const MainCanvas = ({
                 height={konvaImages[0].height}
                 listening={false}
               />
-            )}
+            )} */}
           </Layer>
 
           {/* Editable Layers - Other Images with Transformer */}
@@ -2450,8 +2615,8 @@ const MainCanvas = ({
             )}
 
             {/* Render non-grouped images - UPDATED: Set initial zIndex for new images */}
-            {konvaImages.slice(1).map((item, index) => {
-              const actualIndex = index + 1;
+            {konvaImages.map((item, index) => {
+              const actualIndex = index;
               const isSelected =
                 selectedMediaIndex === actualIndex ||
                 selectedImages.includes(actualIndex);
