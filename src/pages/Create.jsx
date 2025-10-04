@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import LeftSidebar from "../components/EditorComponents/leftSidebar";
 import SecondSidebar from "../components/EditorComponents/SecondSidebar";
 import MainCanvas from "../components/EditorComponents/MainCanvas";
@@ -29,13 +29,14 @@ const Create = () => {
             return null;
           }
 
-          return {
-            ...file,
-            preview: URL.createObjectURL(file),
-            id: Date.now() + Math.random(),
-            type: file.type,
-            name: file.name || "Unknown File",
-          };
+      return {
+        ...file,
+        preview: URL.createObjectURL(file),
+        id: Date.now() + Math.random(),
+        type: file.type,
+        name: file.name || "Unknown File",
+        appliedEffect: null,
+      };
         })
         .filter(Boolean);
 
@@ -116,11 +117,29 @@ const Create = () => {
     };
   }, []);
 
-  const handleRemoveMedia = (indexToRemove) => {
+  const handleRemoveMedia = useCallback((indexToRemove) => {
     setUploadedMedia((prev) =>
       prev.filter((_, index) => index !== indexToRemove)
     );
-  };
+  }, []);
+
+  const handleImageEffectChange = useCallback((index, effectUrl) => {
+    setUploadedMedia((prev) =>
+      prev.map((media, idx) => {
+        if (idx !== index) return media;
+        if (media.appliedEffect === effectUrl) return media;
+        return { ...media, appliedEffect: effectUrl };
+      })
+    );
+  }, []);
+
+  const handleEffectRemove = useCallback((index) => {
+    setUploadedMedia((prev) =>
+      prev.map((media, idx) =>
+        idx === index ? { ...media, appliedEffect: null } : media
+      )
+    );
+  }, []);
 
   // Animation overlay handlers
   const handleAnimationOverlaySelect = (overlayId) => {
@@ -210,6 +229,8 @@ const Create = () => {
           uploadedMedia={uploadedMedia}
           onMediaSelect={handleMediaSelect}
           onMediaReorder={handleMediaReorder}
+          onLayerRemove={handleRemoveMedia}
+          onEffectRemove={handleEffectRemove}
           activeTab={activeTab}
           onTabChange={handleTabChange}
           animationOverlays={animationOverlays}
@@ -224,6 +245,7 @@ const Create = () => {
           onMediaReorder={handleMediaReorder}
           activeEffect={activeEffect}
           onRemoveMedia={handleRemoveMedia}
+          onImageEffectChange={handleImageEffectChange}
           animationOverlays={animationOverlays}
           onAnimationOverlayRemove={handleAnimationOverlayRemove}
           onAnimationOverlayAdd={(overlay) =>
@@ -266,6 +288,8 @@ const Create = () => {
                 uploadedMedia={uploadedMedia}
                 onMediaSelect={handleMediaSelect}
                 onMediaReorder={handleMediaReorder}
+                onLayerRemove={handleRemoveMedia}
+                onEffectRemove={handleEffectRemove}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
                 isMobile={true}
@@ -286,6 +310,8 @@ const Create = () => {
                 onMediaReorder={handleMediaReorder}
                 activeEffect={activeEffect} // 🔥 KEY CHANGE: Pass activeEffect to mobile canvas
                 isMobile={true}
+                onRemoveMedia={handleRemoveMedia}
+                onImageEffectChange={handleImageEffectChange}
                 animationOverlays={animationOverlays}
                 onAnimationOverlayRemove={handleAnimationOverlayRemove}
               />

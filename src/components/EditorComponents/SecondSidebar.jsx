@@ -17,6 +17,8 @@ const SecondSidebar = ({
   onAnimationOverlaySelect,
   onAnimationOverlayReorder,
   onAnimationOverlayRemove,
+  onLayerRemove,
+  onEffectRemove,
 }) => {
   // const [activeTab, setActiveTab] = useState("Upload");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -39,6 +41,12 @@ const SecondSidebar = ({
       // activeTab already controlled by parent
     }
   }, [activeTab]);
+
+  const mediaCount = Array.isArray(uploadedMedia) ? uploadedMedia.length : 0;
+  const effectCount = Array.isArray(uploadedMedia)
+    ? uploadedMedia.filter((media) => media?.appliedEffect).length
+    : 0;
+  const totalLayerCount = mediaCount + effectCount;
 
   // Mock data for layers
   const layers = [
@@ -190,9 +198,17 @@ const SecondSidebar = ({
   const handleContextMenuAction = (action) => {
     const { targetId, type } = contextMenu;
 
-    if (type === "animation" && onAnimationOverlayRemove) {
-      if (action === "remove") {
+    if (action === "remove") {
+      if (type === "animation" && onAnimationOverlayRemove) {
         onAnimationOverlayRemove(targetId);
+      }
+
+      if (type === "media" && onLayerRemove) {
+        onLayerRemove(targetId);
+      }
+
+      if (type === "effect" && onEffectRemove) {
+        onEffectRemove(targetId);
       }
     }
 
@@ -221,7 +237,7 @@ const SecondSidebar = ({
             }`}
             onClick={() => onTabChange("Layer")}
           >
-            Layer {uploadedMedia.length > 0 && `(${uploadedMedia.length})`}
+            Layer {totalLayerCount > 0 && `(${totalLayerCount})`}
           </button>
           <button
             className={`flex-1 py-2 text-xs font-medium transition-colors rounded-2xl ${
@@ -382,7 +398,7 @@ const SecondSidebar = ({
                   </div>
                 ))}
                 <div className="text-white text-xs opacity-50 mb-2 px-2 border-b border-gray-600 pb-1">
-                  Media Layers ({uploadedMedia.length})
+                  Media Layers ({mediaCount})
                 </div>
               </>
             )}
@@ -390,93 +406,126 @@ const SecondSidebar = ({
             {/* Media Layers */}
             {uploadedMedia && uploadedMedia.length > 0
               ? uploadedMedia.map((media, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                      onMediaSelect &&
-                      uploadedMedia &&
-                      uploadedMedia.length > 0 &&
-                      index === 0
-                        ? "bg-[#8088e2]"
-                        : "bg-[#1d1b23] hover:bg-[#222128]"
-                    } ${
-                      draggedLayerIndex === index ? "opacity-50 scale-95" : ""
-                    } ${
-                      dragOverIndex === index &&
-                      draggedLayerIndex !== null &&
-                      draggedLayerIndex !== index
-                        ? "border-2 border-[#8088e2] bg-[#2a2830]"
-                        : ""
-                    }`}
-                    onClick={() => onMediaSelect(index)}
-                    onContextMenu={(e) => handleContextMenu(e, index, "media")}
-                    {...(!isMobile && {
-                      draggable: true,
-                      onDragStart: (e) => handleLayerDragStart(e, index),
-                      onDragOver: (e) => handleLayerDragOver(e, index),
-                      onDragLeave: handleLayerDragLeave,
-                      onDrop: (e) => handleLayerDrop(e, index),
-                      onDragEnd: handleLayerDragEnd,
-                    })}
-                  >
-                    {/* Drag Handle - Only show on desktop */}
-                    {!isMobile && (
-                      <div className="flex flex-col mr-3 ms-1 cursor-move">
-                        <img
-                          src={Dots}
-                          alt="Drag to reorder"
-                          className="opacity-60 hover:opacity-100 transition-opacity"
-                        />
-                      </div>
-                    )}
-
-                    {/* Thumbnail */}
+                  <React.Fragment key={media?.id ?? index}>
                     <div
-                      className={`${
-                        isMobile ? "w-12 h-12" : "w-10 h-12"
-                      } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}
+                      className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                        onMediaSelect &&
+                        uploadedMedia &&
+                        uploadedMedia.length > 0 &&
+                        index === 0
+                          ? "bg-[#8088e2]"
+                          : "bg-[#1d1b23] hover:bg-[#222128]"
+                      } ${
+                        draggedLayerIndex === index ? "opacity-50 scale-95" : ""
+                      } ${
+                        dragOverIndex === index &&
+                        draggedLayerIndex !== null &&
+                        draggedLayerIndex !== index
+                          ? "border-2 border-[#8088e2] bg-[#2a2830]"
+                          : ""
+                      }`}
+                      onClick={() => onMediaSelect && onMediaSelect(index)}
+                      onContextMenu={(e) => handleContextMenu(e, index, "media")}
+                      {...(!isMobile && {
+                        draggable: true,
+                        onDragStart: (e) => handleLayerDragStart(e, index),
+                        onDragOver: (e) => handleLayerDragOver(e, index),
+                        onDragLeave: handleLayerDragLeave,
+                        onDrop: (e) => handleLayerDrop(e, index),
+                        onDragEnd: handleLayerDragEnd,
+                      })}
                     >
-                      {media &&
-                      media.type &&
-                      media.type.startsWith("image/") ? (
-                        <img
-                          src={media.preview}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : media &&
-                        media.type &&
-                        media.type.startsWith("video/") ? (
-                        <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
-                          <Play className="w-5 h-5 text-white" />
-                        </div>
-                      ) : (
-                        <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
-                          <Play className="w-5 h-5 text-white" />
+                      {/* Drag Handle - Only show on desktop */}
+                      {!isMobile && (
+                        <div className="flex flex-col mr-3 ms-1 cursor-move">
+                          <img
+                            src={Dots}
+                            alt="Drag to reorder"
+                            className="opacity-60 hover:opacity-100 transition-opacity"
+                          />
                         </div>
                       )}
-                    </div>
 
-                    {/* Layer Name */}
-                    <span
-                      className={`text-white font-medium flex-1 ${
-                        isMobile ? "text-sm" : "text-sm"
-                      }`}
-                    >
-                      {media && media.name
-                        ? isMobile && media.name.length > 15
-                          ? media.name.substring(0, 15) + "..."
-                          : media.name
-                        : "Unknown Media"}
-                    </span>
+                      {/* Thumbnail */}
+                      <div
+                        className={`${
+                          isMobile ? "w-12 h-12" : "w-10 h-12"
+                        } bg-orange-400 rounded mr-3 flex-shrink-0 overflow-hidden`}
+                      >
+                        {media &&
+                        media.type &&
+                        media.type.startsWith("image/") ? (
+                          <img
+                            src={media.preview}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : media &&
+                          media.type &&
+                          media.type.startsWith("video/") ? (
+                          <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-[#8088e2] flex items-center justify-center">
+                            <Play className="w-5 h-5 text-white" />
+                          </div>
+                        )}
+                      </div>
 
-                    {/* Layer Number (Z-Index) */}
-                    <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
-                      <span className="text-white text-xs font-bold">
-                        {index + 1}
+                      {/* Layer Name */}
+                      <span
+                        className={`text-white font-medium flex-1 ${
+                          isMobile ? "text-sm" : "text-sm"
+                        }`}
+                      >
+                        {media && media.name
+                          ? isMobile && media.name.length > 15
+                            ? media.name.substring(0, 15) + "..."
+                            : media.name
+                          : "Unknown Media"}
                       </span>
+
+                      {/* Layer Number (Z-Index) */}
+                      <div className="w-6 h-6 bg-[#8088e2] rounded-full flex items-center justify-center ml-2">
+                        <span className="text-white text-xs font-bold">
+                          {index + 1}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+
+                    {media?.appliedEffect ? (
+                      <div
+                        className={`flex items-center p-2 rounded-xl transition-all duration-200 cursor-pointer mt-1 ${
+                          isMobile ? "ml-6" : "ml-8"
+                        } bg-[#15131d] hover:bg-[#1d1b23] border border-transparent hover:border-[#8088e2]/60`}
+                        onClick={() => onMediaSelect && onMediaSelect(index)}
+                        onContextMenu={(e) => handleContextMenu(e, index, "effect")}
+                      >
+                        <div
+                          className={`${
+                            isMobile ? "w-10 h-10" : "w-9 h-9"
+                          } rounded-lg overflow-hidden mr-3 bg-[#1f1b2a] flex-shrink-0`}
+                        >
+                          <img
+                            src={media.appliedEffect}
+                            alt={`Effect on ${media?.name || `Layer ${index + 1}`}`}
+                            className="w-full h-full object-cover"
+                            draggable={false}
+                          />
+                        </div>
+                        <div className="flex flex-col flex-1">
+                          <span className="text-[#8088e2] text-xs font-semibold uppercase tracking-wide">
+                            Effect
+                          </span>
+                          <span className="text-white text-xs truncate">
+                            {media?.name ? `on ${media.name}` : `Layer ${index + 1}`}
+                          </span>
+                        </div>
+                        <Image className="w-4 h-4 text-[#8088e2]" />
+                      </div>
+                    ) : null}
+                  </React.Fragment>
                 ))
               : layers.map((layer) => (
                   <div

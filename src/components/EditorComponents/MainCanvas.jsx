@@ -30,6 +30,7 @@ const MainCanvas = ({
   activeEffect,
   isMobile = false,
   onRemoveMedia,
+  onImageEffectChange,
   animationOverlays = [],
   onAnimationOverlayRemove,
   onAnimationOverlayAdd,
@@ -295,7 +296,13 @@ const MainCanvas = ({
   // Zoom functionality - zooms within image boundaries without changing container size
   const handleZoomClick = useCallback(
     (imageId, clickX, clickY) => {
-      if (!zoomMode || !selectedMediaIndex) return;
+      if (
+        !zoomMode ||
+        selectedMediaIndex === null ||
+        selectedMediaIndex === undefined
+      ) {
+        return;
+      }
 
       const currentZoom = imageZoomLevels[imageId] || {
         scale: 1,
@@ -1323,8 +1330,8 @@ const MainCanvas = ({
       )
         return;
 
-      // Only work on overlay images (not base image at index 0)
-      if (selectedMediaIndex === null || selectedMediaIndex === 0) return;
+      // Only proceed when an image is actively selected
+      if (selectedMediaIndex === null) return;
 
       const selectedImage = konvaImages.find(
         (img) => img.id === selectedMediaIndex
@@ -1366,8 +1373,6 @@ const MainCanvas = ({
 
   const handleDeleteImage = useCallback(
     (imageId) => {
-      if (imageId === 0) return; // Don't delete base image
-
       setKonvaImages((prev) => prev.filter((img) => img.id !== imageId));
       setDraggedImages((prev) =>
         prev.filter((img) => img.originalIndex !== imageId)
@@ -1387,8 +1392,6 @@ const MainCanvas = ({
   // Duplicate image function
   const handleDuplicateImage = useCallback(
     (imageId) => {
-      if (imageId === 0) return; // Don't duplicate base image
-
       const imageToDuplicate = konvaImages.find((img) => img.id === imageId);
       const draggedImageToDuplicate = draggedImages.find(
         (img) => img.originalIndex === imageId
@@ -1426,8 +1429,6 @@ const MainCanvas = ({
   // Copy image function
   const handleCopyImage = useCallback(
     (imageId) => {
-      if (imageId === 0) return; // Don't copy base image
-
       const imageToCopy = konvaImages.find((img) => img.id === imageId);
       const draggedImageToCopy = draggedImages.find(
         (img) => img.originalIndex === imageId
@@ -1512,7 +1513,7 @@ const MainCanvas = ({
   // ----- UPDATED: Context menu functions using Konva's built-in layering -----
   const handleContextMenuAction = (action) => {
     const targetId = contextMenu.targetImageId;
-    if (!targetId) return;
+    if (targetId === null || targetId === undefined) return;
 
     const stage = stageRef.current;
     const layer = stage?.getLayers()[1]; // editable layer
@@ -1752,6 +1753,9 @@ const MainCanvas = ({
             : img
         )
       );
+      if (typeof onImageEffectChange === "function") {
+        onImageEffectChange(selectedMediaIndex, gifUrl);
+      }
       lastActiveEffectRef.current = gifUrl;
     } else {
       addEffectToCanvas(activeEffect);
@@ -1882,23 +1886,33 @@ const MainCanvas = ({
                 });
 
                 if (existingImage) {
-                  return existingImage; // keep old size
-                } else {
                   return {
-                    originalIndex: index,
-                    x:
-                      index === 0
-                        ? 0
-                        : centerPos(dimensions.width, dimensions.height).x,
-                    y:
-                      index === 0
-                        ? 0
-                        : centerPos(dimensions.width, dimensions.height).y,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                    rotation: 0,
+                    ...existingImage,
+                    appliedEffect:
+                      media && Object.prototype.hasOwnProperty.call(media, "appliedEffect")
+                        ? media.appliedEffect
+                        : existingImage.appliedEffect ?? null,
                   };
                 }
+
+                return {
+                  originalIndex: index,
+                  x:
+                    index === 0
+                      ? 0
+                      : centerPos(dimensions.width, dimensions.height).x,
+                  y:
+                    index === 0
+                      ? 0
+                      : centerPos(dimensions.width, dimensions.height).y,
+                  width: dimensions.width,
+                  height: dimensions.height,
+                  rotation: 0,
+                  appliedEffect:
+                    media && Object.prototype.hasOwnProperty.call(media, "appliedEffect")
+                      ? media.appliedEffect
+                      : null,
+                };
               });
               return newDraggedImages;
             });
@@ -1917,25 +1931,36 @@ const MainCanvas = ({
                 });
 
                 if (existingKonvaImage) {
-                  return existingKonvaImage; // keep old size
-                } else {
-                  const isBase = idx === 0;
                   return {
-                    id: idx,
+                    ...existingKonvaImage,
                     media,
-                    konvaImg: null,
-                    x: isBase
-                      ? 0
-                      : centerPos(dimensions.width, dimensions.height).x,
-                    y: isBase
-                      ? 0
-                      : centerPos(dimensions.width, dimensions.height).y,
-                    width: dimensions.width,
-                    height: dimensions.height,
-                    rotation: 0,
-                    isDragging: false,
+                    appliedEffect:
+                      media && Object.prototype.hasOwnProperty.call(media, "appliedEffect")
+                        ? media.appliedEffect
+                        : existingKonvaImage.appliedEffect ?? null,
                   };
                 }
+
+                const isBase = idx === 0;
+                return {
+                  id: idx,
+                  media,
+                  konvaImg: null,
+                  x: isBase
+                    ? 0
+                    : centerPos(dimensions.width, dimensions.height).x,
+                  y: isBase
+                    ? 0
+                    : centerPos(dimensions.width, dimensions.height).y,
+                  width: dimensions.width,
+                  height: dimensions.height,
+                  rotation: 0,
+                  isDragging: false,
+                  appliedEffect:
+                    media && Object.prototype.hasOwnProperty.call(media, "appliedEffect")
+                      ? media.appliedEffect
+                      : null,
+                };
               });
 
               // Load only new images
@@ -2092,6 +2117,10 @@ const MainCanvas = ({
                   : k
               )
             );
+
+            if (typeof onImageEffectChange === "function") {
+              onImageEffectChange(hit.originalIndex, ef.gifUrl);
+            }
 
             // Remove the small effect icon from canvas (if you want to keep it, change this)
             setCanvasEffects((prev) => prev.filter((x) => x.id !== ef.id));
@@ -2346,6 +2375,12 @@ const MainCanvas = ({
   useEffect(() => {
     const handleToolChange = (e) => {
       const tool = e.detail?.tool;
+
+      if (tool !== "Skew") {
+        // Commit any pending warp so other tools see the latest transform
+        applyWarp();
+      }
+
       if (tool && tool !== "ZoomIn" && tool !== "ZoomOut") {
         setZoomMode(null);
         // Dispatch zoom mode change event to update left sidebar
@@ -2357,7 +2392,7 @@ const MainCanvas = ({
 
     window.addEventListener("toolChanged", handleToolChange);
     return () => window.removeEventListener("toolChanged", handleToolChange);
-  }, []);
+  }, [applyWarp]);
 
   // Handle drag selection start
   const handleSelectionStart = (e) => {
@@ -3329,7 +3364,8 @@ const MainCanvas = ({
         )}
 
         {/* Zoom mode indicator */}
-        {zoomMode && selectedMediaIndex && (
+        {zoomMode && selectedMediaIndex !== null &&
+          selectedMediaIndex !== undefined && (
           <div className="absolute z-[70] top-3 left-1/2 -translate-x-1/2 bg-[rgba(0,0,0,0.65)] text-white text-sm px-3 py-1.5 rounded border border-[#8088e2]">
             {zoomMode === "zoom-in"
               ? "Click on the selected image to zoom in"
