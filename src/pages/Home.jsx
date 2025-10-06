@@ -9,7 +9,7 @@ const Home = () => {
     <div className="">
       <Navbar />
       <DonateHERO />
-      <Donors />
+      {/* <Donors /> */}
       <Footer />
     </div>
   );
