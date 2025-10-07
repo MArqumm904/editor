@@ -140,6 +140,9 @@ const MainCanvas = ({
   const [isErasing, setIsErasing] = useState(false);
   const eraserCanvasRef = useRef(null);
   const eraserCtxRef = useRef(null);
+  const eraserCursorRef = useRef(null);
+  const eraserCursorPositionRef = useRef(null);
+  const eraserLastPointRef = useRef(null);
   const [canvasEffects, setCanvasEffects] = useState([]);
   const [showEffectHint, setShowEffectHint] = useState(false);
   const [warpMode, setWarpMode] = useState({ active: false, targetId: null });
@@ -163,16 +166,24 @@ const MainCanvas = ({
   // === NEW: Eraser mode functions ===
   // === NEW: Eraser mode functions ===
   const enterEraserMode = useCallback(() => {
-    const targetId = selectedMediaIndex;
-    if (targetId === null || targetId === undefined) return; // must have a selected image
+    const selectedId = selectedMediaIndex;
+    if (selectedId === null || selectedId === undefined) return; // must have a selected image
 
-    const target = konvaImages.find((img) => img.id === targetId);
+    const targetById = konvaImages.find((img) => img.id === selectedId);
+    const targetByIndex =
+      typeof selectedId === "number" ? konvaImages[selectedId] : null;
+    const target = targetById || targetByIndex;
+
     if (!target || !target.konvaImg) return;
 
-    setEraserMode({ active: true, targetId });
+    const resolvedTargetId =
+      target.id !== null && target.id !== undefined ? target.id : selectedId;
+
+    setEraserMode({ active: true, targetId: resolvedTargetId });
+    eraserLastPointRef.current = null;
 
     // Initialize eraser canvas on next frame to ensure DOM is ready
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       const canvas = eraserCanvasRef.current;
       if (!canvas) return;
 
@@ -185,14 +196,57 @@ const MainCanvas = ({
       ctx.drawImage(target.konvaImg, 0, 0, canvas.width, canvas.height);
 
       eraserCtxRef.current = ctx;
-    }, 0);
+    });
   }, [selectedMediaIndex, konvaImages]);
+
+  const getEraserCoords = useCallback((event) => {
+    const canvas = eraserCanvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+    const source = event.touches ? event.touches[0] : event;
+
+    if (!source) return null;
+
+    return {
+      x: source.clientX - rect.left,
+      y: source.clientY - rect.top,
+    };
+  }, []);
+
+  const showEraserCursor = useCallback(
+    (coords) => {
+      if (!coords) return;
+      const pointer = eraserCursorRef.current;
+      if (!pointer) return;
+
+      pointer.style.display = "block";
+      pointer.style.width = `${eraserBrushSize}px`;
+      pointer.style.height = `${eraserBrushSize}px`;
+      const offset = eraserBrushSize / 2;
+      pointer.style.transform = `translate(${coords.x - offset}px, ${coords.y - offset}px)`;
+
+      eraserCursorPositionRef.current = coords;
+    },
+    [eraserBrushSize]
+  );
+
+  const hideEraserCursor = useCallback(() => {
+    const pointer = eraserCursorRef.current;
+    if (pointer) {
+      pointer.style.display = "none";
+      pointer.style.transform = "translate(-9999px, -9999px)";
+    }
+    eraserCursorPositionRef.current = null;
+  }, []);
 
   const exitEraserMode = useCallback(() => {
     setEraserMode({ active: false, targetId: null });
     setIsErasing(false);
     eraserCtxRef.current = null;
-  }, []);
+    eraserLastPointRef.current = null;
+    hideEraserCursor();
+  }, [hideEraserCursor]);
 
   const applyEraser = useCallback(() => {
     if (!eraserMode.active || !eraserMode.targetId || !eraserCanvasRef.current)
@@ -205,8 +259,18 @@ const MainCanvas = ({
     newImg.onload = () => {
       // Update konvaImages with erased version
       setKonvaImages((prev) =>
+        prev.map((img, idx) =>
+          img.id === eraserMode.targetId || idx === eraserMode.targetId
+            ? { ...img, konvaImg: newImg }
+            : img
+        )
+      );
+
+      setDraggedImages((prev) =>
         prev.map((img) =>
-          img.id === eraserMode.targetId ? { ...img, konvaImg: newImg } : img
+          img.originalIndex === eraserMode.targetId
+            ? { ...img, preview: newImg.src }
+            : img
         )
       );
 
@@ -230,69 +294,78 @@ const MainCanvas = ({
     (e) => {
       if (!eraserMode.active || !eraserCtxRef.current) return;
 
+      const coords = getEraserCoords(e);
+      if (!coords) return;
+
+      showEraserCursor(coords);
       setIsErasing(true);
+      eraserLastPointRef.current = coords;
 
-      const canvas = eraserCanvasRef.current;
-      const rect = canvas.getBoundingClientRect();
       const ctx = eraserCtxRef.current;
-
-      const getCoords = (event) => {
-        const clientX = event.touches
-          ? event.touches[0].clientX
-          : event.clientX;
-        const clientY = event.touches
-          ? event.touches[0].clientY
-          : event.clientY;
-        return {
-          x: clientX - rect.left,
-          y: clientY - rect.top,
-        };
-      };
-
-      const coords = getCoords(e);
-
+      ctx.save();
       ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "rgba(0, 0, 0, 1)";
       ctx.beginPath();
       ctx.arc(coords.x, coords.y, eraserBrushSize / 2, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     },
-    [eraserMode.active, eraserBrushSize]
+    [eraserMode.active, eraserBrushSize, getEraserCoords, showEraserCursor]
   );
 
   const continueErasing = useCallback(
     (e) => {
+      const coords = getEraserCoords(e);
+      if (!coords) return;
+
+      showEraserCursor(coords);
+
       if (!isErasing || !eraserCtxRef.current) return;
 
-      const canvas = eraserCanvasRef.current;
-      const rect = canvas.getBoundingClientRect();
       const ctx = eraserCtxRef.current;
+      const lastPoint = eraserLastPointRef.current || coords;
 
-      const getCoords = (event) => {
-        const clientX = event.touches
-          ? event.touches[0].clientX
-          : event.clientX;
-        const clientY = event.touches
-          ? event.touches[0].clientY
-          : event.clientY;
-        return {
-          x: clientX - rect.left,
-          y: clientY - rect.top,
-        };
-      };
-
-      const coords = getCoords(e);
-
+      ctx.save();
       ctx.globalCompositeOperation = "destination-out";
+      ctx.lineWidth = eraserBrushSize;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(0, 0, 0, 1)";
       ctx.beginPath();
-      ctx.arc(coords.x, coords.y, eraserBrushSize / 2, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(lastPoint.x, lastPoint.y);
+      ctx.lineTo(coords.x, coords.y);
+      ctx.stroke();
+      ctx.restore();
+
+      eraserLastPointRef.current = coords;
     },
-    [isErasing, eraserBrushSize]
+    [getEraserCoords, showEraserCursor, isErasing, eraserBrushSize]
   );
 
   const stopErasing = useCallback(() => {
     setIsErasing(false);
+    eraserLastPointRef.current = null;
   }, []);
+
+  const handleEraserMouseLeave = useCallback(() => {
+    hideEraserCursor();
+    stopErasing();
+  }, [hideEraserCursor, stopErasing]);
+
+  useEffect(() => {
+    hideEraserCursor();
+  }, [hideEraserCursor]);
+
+  useEffect(() => {
+    const pointer = eraserCursorRef.current;
+    const coords = eraserCursorPositionRef.current;
+    if (pointer && coords && pointer.style.display !== "none") {
+      pointer.style.width = `${eraserBrushSize}px`;
+      pointer.style.height = `${eraserBrushSize}px`;
+      const offset = eraserBrushSize / 2;
+      pointer.style.transform = `translate(${coords.x - offset}px, ${coords.y - offset}px)`;
+    }
+  }, [eraserBrushSize]);
 
   // Zoom functionality - zooms within image boundaries without changing container size
   const handleZoomClick = useCallback(
@@ -2655,6 +2728,14 @@ const MainCanvas = ({
                 {groupedImages.map((imageId) => {
                   const item = konvaImages.find((img) => img.id === imageId);
                   if (!item || !item.konvaImg) return null;
+
+                  if (
+                    eraserMode.active &&
+                    (eraserMode.targetId === imageId ||
+                      eraserMode.targetId === item.id)
+                  ) {
+                    return null;
+                  }
                   return (
                     <KonvaImage
                       key={imageId}
@@ -2676,23 +2757,40 @@ const MainCanvas = ({
             {/* Render non-grouped images - UPDATED: Set initial zIndex for new images */}
             {konvaImages.map((item, index) => {
               const actualIndex = index;
+              const itemId =
+                item && item.id !== undefined && item.id !== null
+                  ? item.id
+                  : actualIndex;
               const isSelected =
                 selectedMediaIndex === actualIndex ||
-                selectedImages.includes(actualIndex);
-              const isGrouped = groupedImages.includes(actualIndex);
+                selectedMediaIndex === itemId ||
+                selectedImages.includes(actualIndex) ||
+                selectedImages.includes(itemId);
+              const isGrouped =
+                groupedImages.includes(actualIndex) ||
+                groupedImages.includes(itemId);
               const hiddenByWarp =
-                warpMode.active && warpMode.targetId === actualIndex;
+                warpMode.active &&
+                (warpMode.targetId === actualIndex ||
+                  warpMode.targetId === itemId);
+              const isEraserTarget =
+                eraserMode.active &&
+                (eraserMode.targetId === actualIndex ||
+                  eraserMode.targetId === itemId);
 
               // Don't render if it's part of a group
               if (isGrouped) return null;
               if (hiddenByWarp) return null;
+              if (isEraserTarget) return null;
 
               // Get zoom data for this image
-              const zoomData = imageZoomLevels[actualIndex] || {
-                scale: 1,
-                offsetX: 0,
-                offsetY: 0,
-              };
+              const zoomData =
+                imageZoomLevels[itemId] ||
+                imageZoomLevels[actualIndex] || {
+                  scale: 1,
+                  offsetX: 0,
+                  offsetY: 0,
+                };
 
               // Check if konvaImg exists before proceeding
               if (!item.konvaImg) return null;
@@ -3179,10 +3277,12 @@ const MainCanvas = ({
         {/* Eraser Transform Overlay */}
         {eraserMode.active &&
           (() => {
-            const target = konvaImages.find(
-              (img) => img.id === eraserMode.targetId
-            );
-            if (!target) return null;
+            const target =
+              konvaImages.find((img) => img.id === eraserMode.targetId) ||
+              (typeof eraserMode.targetId === "number"
+                ? konvaImages[eraserMode.targetId]
+                : null);
+            if (!target || !target.konvaImg) return null;
 
             const containerRect = canvasRef.current?.getBoundingClientRect();
             const stageElement = stageRef.current?.getStage().container();
@@ -3239,17 +3339,34 @@ const MainCanvas = ({
                     </button>
                   </div>
                 </div>
+                <div
+                  ref={eraserCursorRef}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: `${eraserBrushSize}px`,
+                    height: `${eraserBrushSize}px`,
+                    borderRadius: "50%",
+                    border: "1.5px solid rgba(255, 255, 255, 0.9)",
+                    boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.45)",
+                    pointerEvents: "none",
+                    zIndex: 2,
+                    mixBlendMode: "difference",
+                  }}
+                />
                 <canvas
                   ref={eraserCanvasRef}
-                  className="w-full h-full cursor-crosshair"
-                  style={{ touchAction: "none" }}
+                  className="w-full h-full"
+                  style={{ touchAction: "none", cursor: "none" }}
                   onMouseDown={startErasing}
                   onMouseMove={continueErasing}
                   onMouseUp={stopErasing}
-                  onMouseLeave={stopErasing}
+                  onMouseLeave={handleEraserMouseLeave}
                   onTouchStart={startErasing}
                   onTouchMove={continueErasing}
                   onTouchEnd={stopErasing}
+                  onTouchCancel={stopErasing}
                 />
               </div>
             );
