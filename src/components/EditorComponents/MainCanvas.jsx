@@ -149,6 +149,7 @@ const MainCanvas = ({
   const [zoomMode, setZoomMode] = useState(null); // 'zoom-in' or 'zoom-out'
   const [imageZoomLevels, setImageZoomLevels] = useState({}); // {imageId: {scale: 1, offsetX: 0, offsetY: 0}}
   const [exportLoading, setExportLoading] = useState(false);
+  const [exportFormat, setExportFormat] = useState("video");
   const [copiedImageData, setCopiedImageData] = useState(null);
   const A4_WIDTH = 1123;
   const A4_HEIGHT = 794;
@@ -707,13 +708,18 @@ const MainCanvas = ({
     return window.selectedDuration || 5000;
   };
 
-  const exportCanvasAsVideo = async () => {
+  const exportCanvasAsVideo = async (format = "video") => {
     const stage = stageRef.current;
     if (!stage) {
       console.error("Stage not available");
       return;
     }
 
+    const isGif = format === "gif";
+    const exportFps = isGif ? 15 : 30;
+    const formatLabel = isGif ? "GIF" : "Video";
+
+    setExportFormat(format);
     setExportLoading(true);
 
     try {
@@ -845,9 +851,9 @@ const MainCanvas = ({
             };
           }),
         exportSettings: {
-          format: "video",
+          format,
           duration: getDurationInMs(),
-          fps: 30,
+          fps: exportFps,
           quality: "high",
           timestamp: new Date().toISOString(),
         },
@@ -989,14 +995,16 @@ const MainCanvas = ({
       console.log("Export data after conversion and filtering:", exportData);
 
       console.log("\n=== SENDING TO BACKEND ===");
-      const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/export-video`;
+      const apiUrl = `${import.meta.env.VITE_API_BASE_URL}/${isGif ? "export-gif" : "export-video"}`;
       console.log("Sending request to:", apiUrl);
 
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
+          Accept: isGif
+            ? "image/gif,application/json"
+            : "video/mp4,application/json",
         },
         body: JSON.stringify(exportData),
       });
@@ -1034,32 +1042,38 @@ const MainCanvas = ({
         }
 
         if (result.jobId) {
-          console.log("Video generation started with job ID:", result.jobId);
+          console.log(
+            `${formatLabel} generation started with job ID:`,
+            result.jobId
+          );
           alert(
-            "Video generation started! You will receive the download link when processing is complete."
+            `${formatLabel} generation started! You will receive the download link when processing is complete.`
           );
         }
       } else {
-        // Handle direct video download
-        const videoBlob = await response.blob();
-        console.log("Video blob received, size:", videoBlob.size);
+        // Handle direct media download
+        const mediaBlob = await response.blob();
+        console.log(`${formatLabel} blob received, size:`, mediaBlob.size);
 
-        if (videoBlob.size === 0) {
-          throw new Error("Received empty video file from server");
+        if (mediaBlob.size === 0) {
+          throw new Error(
+            `Received empty ${format.toLowerCase()} file from server`
+          );
         }
 
-        const videoUrl = URL.createObjectURL(videoBlob);
+        const downloadUrl = URL.createObjectURL(mediaBlob);
         const link = document.createElement("a");
-        link.href = videoUrl;
-        link.download = `cinemaglow-video-${Date.now()}.mp4`;
+        link.href = downloadUrl;
+        const fileExtension = isGif ? "gif" : "mp4";
+        link.download = `cinemaglow-${format}-${Date.now()}.${fileExtension}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(videoUrl), 100);
-        console.log("Video download initiated");
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+        console.log(`${formatLabel} download initiated`);
 
         // Show success message
-        let successMessage = "Video exported successfully!";
+        let successMessage = `${formatLabel} exported successfully!`;
         if (effectsWereFiltered) {
           successMessage +=
             " Note: Some effects could not be included due to technical limitations.";
@@ -1067,21 +1081,24 @@ const MainCanvas = ({
         alert(successMessage);
       }
     } catch (error) {
-      console.error("Error exporting video:", error);
+      console.error(`Error exporting ${format.toLowerCase()}:`, error);
 
       // Provide more specific error messages
-      let errorMessage = "Video export failed: ";
-      if (error.message.includes("blob:")) {
+      const errorMsg = error?.message || "";
+      let errorMessage = `${formatLabel} export failed: `;
+      if (errorMsg.includes("blob:")) {
         errorMessage +=
           "Some images or effects could not be processed. Please try re-uploading your images.";
-      } else if (error.message.includes("Server error: 500")) {
+      } else if (errorMsg.includes("Server error: 500")) {
         errorMessage +=
           "Server processing error. Please check that all images are valid and try again.";
-      } else if (error.message.includes("Failed to fetch")) {
+      } else if (errorMsg.includes("Failed to fetch")) {
         errorMessage +=
           "Network connection error. Please check your internet connection and try again.";
+      } else if (errorMsg) {
+        errorMessage += errorMsg;
       } else {
-        errorMessage += error.message;
+        errorMessage += "Unknown error occurred.";
       }
 
       alert(errorMessage);
@@ -1089,6 +1106,8 @@ const MainCanvas = ({
       setExportLoading(false);
     }
   };
+
+  const exportCanvasAsGif = () => exportCanvasAsVideo("gif");
 
   const exportCanvasAsImage = async () => {
     const stage = stageRef.current;
@@ -1237,18 +1256,23 @@ const MainCanvas = ({
   };
   // Update the existing export event handler to support video export
   const exportVideoRef = useRef();
+  const exportGifRef = useRef();
   const exportImageRef = useRef();
 
   useEffect(() => {
     exportVideoRef.current = exportCanvasAsVideo;
+    exportGifRef.current = exportCanvasAsGif;
     exportImageRef.current = exportCanvasAsImage;
-  }, [exportCanvasAsVideo, exportCanvasAsImage]);
+  }, [exportCanvasAsVideo, exportCanvasAsGif, exportCanvasAsImage]);
 
   useEffect(() => {
     const handleExportEvent = (e) => {
       if (e.detail?.format === "video" && !e.detail?.processed) {
         e.detail.processed = true;
         exportVideoRef.current?.();
+      } else if (e.detail?.format === "gif" && !e.detail?.processed) {
+        e.detail.processed = true;
+        exportGifRef.current?.();
       } else if (e.detail?.format === "image" && !e.detail?.processed) {
         e.detail.processed = true;
         exportImageRef.current?.();
@@ -3493,6 +3517,7 @@ const MainCanvas = ({
       {/* Add this just before the last closing </div> */}
       <VideoExportLoader
         isVisible={exportLoading}
+        format={exportFormat}
         onClose={() => setExportLoading(false)}
       />
     </div>

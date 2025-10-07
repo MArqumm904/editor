@@ -636,6 +636,10 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaI
               window.dispatchEvent(
                 new CustomEvent("exportCanvas", { detail: { format: "video" } })
               );
+            } else if (selectedFormat === "gif") {
+              window.dispatchEvent(
+                new CustomEvent("exportCanvas", { detail: { format: "gif" } })
+              );
             }
           }}
         >

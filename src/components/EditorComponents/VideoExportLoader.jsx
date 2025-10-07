@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
 
-const VideoExportLoader = ({ isVisible, onClose }) => {
+const VideoExportLoader = ({ isVisible, onClose, format = "video" }) => {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
-  
-  const steps = [
-    "Initializing video processing...",
-    "Processing images and effects...",
-    "Applying security checks...",
-    "Rendering final video...",
-    "Almost done..."
-  ];
+  const isGif = format === "gif";
+  const formatLabel = isGif ? "GIF" : "Video";
+  const estimateBase = isGif ? 25 : 30;
+
+  const steps = isGif
+    ? [
+        "Preparing animation frames...",
+        "Generating color palette...",
+        "Optimizing file size...",
+        "Encoding final GIF...",
+        "Almost done..."
+      ]
+    : [
+        "Initializing video processing...",
+        "Processing images and effects...",
+        "Applying security checks...",
+        "Rendering final video...",
+        "Almost done..."
+      ];
 
   useEffect(() => {
     if (!isVisible) {
@@ -18,6 +29,9 @@ const VideoExportLoader = ({ isVisible, onClose }) => {
       setCurrentStep(0);
       return;
     }
+
+    setProgress(0);
+    setCurrentStep(0);
 
     const interval = setInterval(() => {
       setProgress(prev => {
@@ -38,7 +52,7 @@ const VideoExportLoader = ({ isVisible, onClose }) => {
     }, 800);
 
     return () => clearInterval(interval);
-  }, [isVisible]);
+  }, [isVisible, format]);
 
   if (!isVisible) return null;
 
@@ -53,9 +67,12 @@ const VideoExportLoader = ({ isVisible, onClose }) => {
               <div className="w-8 h-8 bg-[#8088e2] rounded-full opacity-75 animate-pulse"></div>
             </div>
           </div>
-          <h3 className="text-xl font-semibold text-white mb-2">Processing Your Video</h3>
+          <h3 className="text-xl font-semibold text-white mb-2">
+            Processing Your {formatLabel}
+          </h3>
           <p className="text-gray-400 text-sm">
-            Please wait while we process your video through our security system
+            Please wait while we process your {formatLabel.toLowerCase()} through
+            our security system
           </p>
         </div>
 
@@ -102,7 +119,12 @@ const VideoExportLoader = ({ isVisible, onClose }) => {
 
         {/* Estimated Time */}
         <div className="text-center mt-4 text-xs text-gray-500">
-          Estimated time: {Math.max(30 - Math.round(progress * 0.3), 5)} seconds remaining
+          Estimated time:{" "}
+          {Math.max(
+            estimateBase - Math.round((progress / 100) * estimateBase),
+            5
+          )}{" "}
+          seconds remaining
         </div>
       </div>
     </div>
