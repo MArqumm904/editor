@@ -106,16 +106,16 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaI
   const animationCategoryData = [
     {
       name: "Weather",
-      icon: "🌧️",
+      icon: "🌧",
       items: [
         {
           name: "Rain",
-          icon: "🌧️",
+          icon: "🌧",
           gif: Gif,
         },
         {
           name: "Snow",
-          icon: "❄️",
+          icon: "❄",
           gif: "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmk1Y21hMTRzYmo2OHViaHVjMmxqczN5a3pyMm5iZmppNHR0cXVoaSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/tIHktzgRi8yjIplFVI/giphy.gif",
         },
       ],
@@ -184,16 +184,16 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaI
     },
     {
       name: "Objects",
-      icon: "🕯️",
+      icon: "🕯",
       items: [
         {
           name: "Candles",
-          icon: "🕯️",
+          icon: "🕯",
           gif: "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWFpNGkwNTJ2NmJvdXFxcXljMDh6dnVrbDh6cGx6bHMyc251cHc5MCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/euQr1xeeZjX25mNL4T/giphy.gif",
         },
         {
           name: "Asteroid",
-          icon: "☄️",
+          icon: "☄",
           gif: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExeWUxYzlwMzY2dHhvNGduNmI4M3JyYm43YnE5Mjh2bmZwaGNhanY0byZlcD12MV9naWZzX3NlYXJjaCZjdD1n/W5g5W5hMkzrJQDpN3P/giphy.gif",
         },
       ],
