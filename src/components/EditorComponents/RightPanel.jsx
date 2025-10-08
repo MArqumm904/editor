@@ -623,24 +623,15 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaI
         <button
           className="w-full bg-[#8088e2] text-white py-2.5 px-4 rounded-sm font-medium hover:bg-[#6b73d1] transition-all duration-200"
           onClick={() => {
-            if (selectedFormat === "image") {
-              // Canvas export karne ke liye parent component ko signal bhejte hain
-              if (onExport) {
-                onExport("image", {
-                  aspectRatio: selectedAspectRatio,
-                  resolution: selectedResolution,
-                });
-              }
-            } else if (selectedFormat === "video") {
-              // Video export: Dispatch exportCanvas event for video
-              window.dispatchEvent(
-                new CustomEvent("exportCanvas", { detail: { format: "video" } })
-              );
-            } else if (selectedFormat === "gif") {
-              window.dispatchEvent(
-                new CustomEvent("exportCanvas", { detail: { format: "gif" } })
-              );
-            }
+            if (!onExport) return;
+            const exportSettings =
+              selectedFormat === "image"
+                ? {
+                    aspectRatio: selectedAspectRatio,
+                    resolution: selectedResolution,
+                  }
+                : undefined;
+            onExport(selectedFormat, exportSettings, includeInGallery);
           }}
         >
           Export

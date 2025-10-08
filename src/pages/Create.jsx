@@ -141,14 +141,16 @@ const Create = () => {
     }
   };
 
-  const handleExport = (format, settings) => {
-    if (format === "image") {
-      window.dispatchEvent(
-        new CustomEvent("exportCanvas", {
-          detail: { format, settings },
-        })
-      );
+  const handleExport = (format, settings, includeInGallery = false) => {
+    if (!format) return;
+    const detail = {
+      format,
+      includeInGallery,
+    };
+    if (settings) {
+      detail.settings = settings;
     }
+    window.dispatchEvent(new CustomEvent("exportCanvas", { detail }));
   };
 
   const handleMediaSelect = (index) => {

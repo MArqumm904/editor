@@ -2,50 +2,234 @@
 import { useParams, useNavigate } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 import { motion, useInView } from "framer-motion"
-import { useRef,useEffect } from "react"
+import { useRef, useEffect, useState, useMemo } from "react"
 
-// Local image imports
-import img1 from "../assets/images/gallery/1.png"
-import img2 from "../assets/images/gallery/2.png"
-import img3 from "../assets/images/gallery/3.png"
-import img4 from "../assets/images/gallery/4.png"
-import img5 from "../assets/images/gallery/5.png"
-import img6 from "../assets/images/gallery/6.jpg"
-import img7 from "../assets/images/gallery/7.png"
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "")
+const VIDEO_EXTENSION_REGEX = /\.(mp4|webm|ogg|mov)$/i
+
+const getMediaSource = (media) => (media?.src || media?.media_url || "").toString()
+
+const isVideoMedia = (media) => {
+  if (!media) {
+    return false
+  }
+
+  const type = typeof media.media_type === "string" ? media.media_type.toLowerCase() : ""
+  if (type === "video") {
+    return true
+  }
+
+  const src = getMediaSource(media)
+  if (!src) {
+    return false
+  }
+
+  const cleanedSrc = src.split("?")[0]?.toLowerCase() ?? ""
+  return VIDEO_EXTENSION_REGEX.test(cleanedSrc)
+}
 
 const ImageDetail = () => {
-    useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
+
   const { id } = useParams()
   const navigate = useNavigate()
   const containerRef = useRef(null)
   const isInView = useInView(containerRef, { once: true, margin: "-100px" })
 
-  // Gallery items using imported images
-  const galleryItems = [
-    { id: 1, src: img1, artist: "Nicholas Turner", title: "Blue image glow background use wallpaper", height: "h-80" },
-    { id: 2, src: img2, artist: "Patty Stone", title: "Cave Explorer", height: "h-60" },
-    { id: 3, src: img3, artist: "Neal Wilson", title: "Vibrant Portrait", height: "h-52" },
-    { id: 4, src: img4, artist: "Nicholas Turner", title: "Steampunk Device", height: "h-72" },
-    { id: 5, src: img5, artist: "Neal Wilson", title: "Vibrant Portrait 2", height: "h-52" },
-    { id: 6, src: img6, artist: "Arlene McCoy", title: "Golden Orb", height: "h-80" },
-    { id: 7, src: img7, artist: "Robert Fox", title: "Cosmic Spiral", height: "h-72" },
-    { id: 8, src: img1, artist: "Nicholas Turner", title: "Abstract Waves", height: "h-60" },
-  ]
+  const [featuredImage, setFeaturedImage] = useState(null)
+  const [galleryItems, setGalleryItems] = useState([])
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Featured image
-  const featuredImage = galleryItems[0]
+  const numericId = Number(id)
+  const hasValidId = Number.isFinite(numericId) && numericId > 0
 
-  // Sidebar thumbnails
-  const sidebarImages = [
-    { id: 1, src: img4, artist: "Nicholas Turner" },
-    { id: 2, src: img3, artist: "Neal Wilson" },
-    { id: 3, src: img6, artist: "Arlene McCoy" },
-    { id: 4, src: img7, artist: "Robert Fox" },
-    { id: 5, src: img4, artist: "Nicholas Turner" },
-    { id: 6, src: img3, artist: "Neal Wilson" },
-  ]
+  const getInitial = (name = "") => {
+    const trimmed = name.trim()
+    return trimmed ? trimmed.charAt(0).toUpperCase() : "?"
+  }
+
+  useEffect(() => {
+    if (!hasValidId) {
+      setError("Invalid image reference.")
+      setFeaturedImage(null)
+      return
+    }
+
+    if (!API_BASE_URL) {
+      setError("API base URL not configured.")
+      return
+    }
+
+    const controller = new AbortController()
+    let isActive = true
+
+    const fetchDetail = async () => {
+      setDetailLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/gallery/get-data`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id: numericId }),
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image details (${response.status})`)
+        }
+
+        const payload = await response.json()
+
+        if (!payload.success || !payload.data) {
+          throw new Error("Unexpected response while loading image details.")
+        }
+
+        const detail = payload.data
+
+        if (!detail?.media_url) {
+          throw new Error("Media URL missing for this image.")
+        }
+
+        if (isActive) {
+          setFeaturedImage({
+            id: detail.id,
+            src: detail.media_url,
+            artist: detail.user_name || "Unknown artist",
+            title: detail.title || `Artwork #${detail.id}`,
+            media_type: detail.media_type,
+            user_image: detail.user_image,
+            timestamp: detail.timestamp,
+          })
+        }
+      } catch (err) {
+        if (!isActive || err.name === "AbortError") {
+          return
+        }
+
+        setError(err.message || "Unable to load image details.")
+        setFeaturedImage(null)
+      } finally {
+        if (isActive) {
+          setDetailLoading(false)
+        }
+      }
+    }
+
+    fetchDetail()
+
+    return () => {
+      isActive = false
+      controller.abort()
+    }
+  }, [hasValidId, numericId])
+
+  useEffect(() => {
+    if (!API_BASE_URL) {
+      setError((prev) => prev ?? "API base URL not configured.")
+      return
+    }
+
+    const controller = new AbortController()
+    let isActive = true
+
+    const fetchGallery = async () => {
+      setGalleryLoading(true)
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/gallery`, {
+          signal: controller.signal,
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch gallery (${response.status})`)
+        }
+
+        const payload = await response.json()
+        const records = Array.isArray(payload?.data) ? payload.data : []
+
+        if (isActive) {
+          const mapped = records.map((item) => ({
+            id: item.id,
+            src: item.src || item.media_url,
+            artist: item.artist || item.user_name || "Unknown artist",
+            title: item.title || `Artwork #${item.id}`,
+            height: item.height || "h-80",
+            media_type: item.media_type,
+            user_image: item.user_image,
+            timestamp: item.timestamp,
+          }))
+
+          setGalleryItems(mapped)
+        }
+      } catch (err) {
+        if (!isActive || err.name === "AbortError") {
+          return
+        }
+
+        setError((prev) => prev ?? (err.message || "Unable to load gallery."))
+      } finally {
+        if (isActive) {
+          setGalleryLoading(false)
+        }
+      }
+    }
+
+    fetchGallery()
+
+    return () => {
+      isActive = false
+      controller.abort()
+    }
+  }, [])
+
+  const resolvedFeaturedImage = useMemo(() => {
+    if (featuredImage) {
+      const fallback = galleryItems.find((item) => item.id === featuredImage.id)
+
+      return {
+        ...fallback,
+        ...featuredImage,
+        src: featuredImage.src || fallback?.src,
+        artist: featuredImage.artist || fallback?.artist || "Unknown artist",
+        title:
+          featuredImage.title ||
+          fallback?.title ||
+          (featuredImage.id ? `Artwork #${featuredImage.id}` : "Artwork"),
+        height: fallback?.height || "h-80",
+      }
+    }
+
+    if (hasValidId) {
+      const fallback = galleryItems.find((item) => item.id === numericId)
+      return fallback || null
+    }
+
+    return null
+  }, [featuredImage, galleryItems, hasValidId, numericId])
+
+  const sidebarImages = useMemo(() => {
+    const excludeId = resolvedFeaturedImage?.id
+
+    return galleryItems
+      .filter((item) => item.id !== excludeId)
+      .slice(0, 6)
+  }, [galleryItems, resolvedFeaturedImage])
+
+  const bottomGalleryItems = useMemo(() => {
+    const excludeId = resolvedFeaturedImage?.id
+
+    return galleryItems.filter((item) => item.id !== excludeId)
+  }, [galleryItems, resolvedFeaturedImage])
+
+  const pageTitle =
+    resolvedFeaturedImage?.title || (hasValidId ? `Artwork #${numericId}` : "Artwork Detail")
 
   // Animation variants
   const containerVariants = {
@@ -161,8 +345,66 @@ const ImageDetail = () => {
     },
   };
 
+  const featuredArtist = resolvedFeaturedImage?.artist || "Unknown artist"
+  const featuredTitle = resolvedFeaturedImage?.title || "Artwork"
+  const featuredAlt = resolvedFeaturedImage
+    ? `${featuredTitle} by ${featuredArtist}`
+    : "Artwork preview"
+  const showLoadingMessage =
+    (detailLoading && !resolvedFeaturedImage) ||
+    (galleryLoading && galleryItems.length === 0)
+
+  const renderMedia = (
+    mediaItem,
+    { className = "", alt = "Artwork media", variant = "default" } = {}
+  ) => {
+    const src = getMediaSource(mediaItem)
+    const isVideo = isVideoMedia(mediaItem)
+
+    if (!src) {
+      return (
+        <img
+          src="/placeholder.svg"
+          alt={alt}
+          className={className}
+          loading={variant === "featured" ? "eager" : "lazy"}
+        />
+      )
+    }
+
+    if (isVideo) {
+      const isFeatured = variant === "featured"
+
+      return (
+        <video
+          src={src}
+          className={className}
+          controls={isFeatured}
+          muted={!isFeatured}
+          loop={!isFeatured}
+          autoPlay={!isFeatured}
+          playsInline
+          preload="metadata"
+          poster={mediaItem?.poster || undefined}
+          aria-label={alt}
+        >
+          Your browser does not support the video tag.
+        </video>
+      )
+    }
+
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading={variant === "featured" ? "eager" : "lazy"}
+      />
+    )
+  }
+
   return (
-    <motion.div 
+    <motion.div
       ref={containerRef}
       className="min-h-screen bg-black text-white px-4 sm:px-6 lg:px-8 pb-8"
       variants={containerVariants}
@@ -170,13 +412,13 @@ const ImageDetail = () => {
       animate={isInView ? "visible" : "hidden"}
     >
       {/* Header */}
-      <motion.div 
+      <motion.div
         className="pt-6 pb-8 ml-0 sm:ml-12 lg:ml-24"
         variants={titleVariants}
       >
         <div className="flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-semibold text-white">Cinemaglow</h1>
-          
+          <h1 className="text-xl sm:text-2xl font-semibold text-white">{pageTitle}</h1>
+
           {/* Back Button - Mobile/Tablet */}
           <motion.button
             className="lg:hidden w-10 h-10 bg-darkbg border border-white rounded-lg flex items-center justify-center hover:bg-darkbg transition-colors"
@@ -190,8 +432,26 @@ const ImageDetail = () => {
         </div>
       </motion.div>
 
+      {error && (
+        <motion.div
+          className="mb-4 rounded-lg border border-red-500/40 bg-red-500/20 px-4 py-3 text-sm text-red-200"
+          variants={mainContentVariants}
+        >
+          {error}
+        </motion.div>
+      )}
+
+      {showLoadingMessage && !error && (
+        <motion.div
+          className="mb-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70"
+          variants={mainContentVariants}
+        >
+          Loading gallery...
+        </motion.div>
+      )}
+
       {/* Main Content */}
-      <motion.div 
+      <motion.div
         className="flex flex-col lg:flex-row gap-4 sm:gap-6"
         variants={mainContentVariants}
       >
@@ -210,82 +470,88 @@ const ImageDetail = () => {
 
           {/* Image and Info Container */}
           <div className="flex-1 w-full">
-            <motion.div 
+            <motion.div
               className="bg-gray-800 rounded-2xl overflow-hidden"
               variants={imageVariants}
               whileHover="hover"
             >
-              <img
-                src={featuredImage.src || "/placeholder.svg"}
-                alt={featuredImage.title}
-                className="w-full h-64 sm:h-80 lg:h-96 object-cover"
-              />
+              {renderMedia(resolvedFeaturedImage, {
+                className: "w-full h-64 sm:h-80 lg:h-96 object-cover",
+                alt: featuredAlt,
+                variant: "featured",
+              })}
             </motion.div>
 
             {/* Featured Image Info Below */}
-            <motion.div 
+            <motion.div
               className="mt-3"
               variants={mainContentVariants}
             >
-              <h2 className="text-base sm:text-lg font-medium mb-2 text-white">{featuredImage.title}</h2>
+              <h2 className="text-base sm:text-lg font-medium mb-2 text-white">{featuredTitle}</h2>
               <div className="flex items-center gap-2">
-                <motion.div 
+                <motion.div
                   className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-500 rounded-full flex items-center justify-center"
                   whileHover={{
                     scale: 1.2,
                     backgroundColor: "#8088e2",
-                    transition: { duration: 0.2 }
+                    transition: { duration: 0.2 },
                   }}
                 >
-                  <span className="text-xs sm:text-sm text-white font-semibold">{featuredImage.artist.charAt(0)}</span>
+                  <span className="text-xs sm:text-sm text-white font-semibold">
+                    {getInitial(featuredArtist)}
+                  </span>
                 </motion.div>
-                <span className="text-white text-sm font-medium">{featuredImage.artist}</span>
+                <span className="text-white text-sm font-medium">{featuredArtist}</span>
               </div>
             </motion.div>
           </div>
         </div>
 
         {/* Sidebar Thumbnails */}
-        <motion.div 
+        <motion.div
           className="w-full lg:w-80"
           variants={mainContentVariants}
         >
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-3 sm:gap-4">
             {sidebarImages.map((item, index) => (
-              <motion.div 
-                key={item.id} 
+              <motion.div
+                key={item.id}
                 className="group cursor-pointer"
                 variants={sidebarItemVariants}
                 custom={index}
                 whileHover={{
                   scale: 1.05,
-                  transition: { duration: 0.2 }
+                  transition: { duration: 0.2 },
                 }}
               >
-                <motion.div 
+                <motion.div
                   className="bg-gray-800 rounded-xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300"
                   variants={imageVariants}
                   whileHover="hover"
                 >
-                  <img 
-                    src={item.src || "/placeholder.svg"} 
-                    alt="Thumbnail" 
-                    className="w-full h-24 sm:h-32 object-cover" 
-                  />
+                  {renderMedia(item, {
+                    className: "w-full h-24 sm:h-32 object-cover",
+                    alt: item.title || "Gallery thumbnail",
+                    variant: "thumbnail",
+                  })}
                 </motion.div>
                 {/* Artist Info Below Thumbnail */}
                 <div className="mt-2 flex items-center gap-2">
-                  <motion.div 
+                  <motion.div
                     className="w-4 h-4 sm:w-5 sm:h-5 bg-orange-500 rounded-full flex items-center justify-center"
                     whileHover={{
                       scale: 1.2,
                       backgroundColor: "#8088e2",
-                      transition: { duration: 0.2 }
+                      transition: { duration: 0.2 },
                     }}
                   >
-                    <span className="text-xs text-white font-semibold">{item.artist.charAt(0)}</span>
+                    <span className="text-xs text-white font-semibold">
+                      {getInitial(item.artist)}
+                    </span>
                   </motion.div>
-                  <span className="text-white text-xs font-medium truncate">{item.artist}</span>
+                  <span className="text-white text-xs font-medium truncate">
+                    {item.artist || "Unknown artist"}
+                  </span>
                 </div>
               </motion.div>
             ))}
@@ -294,46 +560,50 @@ const ImageDetail = () => {
       </motion.div>
 
       {/* Bottom Gallery Grid */}
-      <motion.div 
+      <motion.div
         className="mt-8 sm:mt-12"
         variants={bottomGridVariants}
       >
         <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 space-y-4 sm:space-y-6">
-          {galleryItems.map((item, index) => (
-            <motion.div 
-              key={`bottom-${item.id}`} 
+          {bottomGalleryItems.map((item, index) => (
+            <motion.div
+              key={`bottom-${item.id}`}
               className="break-inside-avoid group cursor-pointer"
               variants={gridItemVariants}
               custom={index}
               whileHover={{
                 scale: 1.02,
-                transition: { duration: 0.2 }
+                transition: { duration: 0.2 },
               }}
             >
-              <motion.div 
+              <motion.div
                 className="bg-gray-800 rounded-2xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 hover:shadow-2xl"
                 variants={imageVariants}
                 whileHover="hover"
               >
-                <img
-                  src={item.src || "/placeholder.svg"}
-                  alt={item.title}
-                  className={`w-full object-cover ${item.height}`}
-                />
+                {renderMedia(item, {
+                  className: `w-full object-cover ${item.height || "h-80"}`,
+                  alt: item.title || "Gallery item",
+                  variant: "grid",
+                })}
               </motion.div>
               {/* Artist Info Below Each Image */}
               <div className="mt-3 flex items-center gap-2">
-                <motion.div 
+                <motion.div
                   className="w-5 h-5 sm:w-6 sm:h-6 bg-orange-500 rounded-full flex items-center justify-center"
                   whileHover={{
                     scale: 1.2,
                     backgroundColor: "#8088e2",
-                    transition: { duration: 0.2 }
+                    transition: { duration: 0.2 },
                   }}
                 >
-                  <span className="text-xs text-white font-semibold">{item.artist.charAt(0)}</span>
+                  <span className="text-xs text-white font-semibold">
+                    {getInitial(item.artist)}
+                  </span>
                 </motion.div>
-                <span className="text-white text-xs sm:text-sm font-medium">{item.artist}</span>
+                <span className="text-white text-xs sm:text-sm font-medium">
+                  {item.artist || "Unknown artist"}
+                </span>
               </div>
             </motion.div>
           ))}

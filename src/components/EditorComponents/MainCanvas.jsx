@@ -23,6 +23,23 @@ import {
 } from "lucide-react";
 import VideoExportLoader from "./VideoExportLoader"; // Adjust path as needed
 
+const TRANSPARENT_PIXEL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAFgwJ/lTcidwAAAABJRU5ErkJggg==";
+
+const createSolidColorDataUrl = (color) => {
+  if (typeof document === "undefined") {
+    return TRANSPARENT_PIXEL;
+  }
+
+  const helperCanvas = document.createElement("canvas");
+  helperCanvas.width = 1;
+  helperCanvas.height = 1;
+  const ctx = helperCanvas.getContext("2d");
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  return helperCanvas.toDataURL("image/png");
+};
+
 const MainCanvas = ({
   uploadedMedia,
   selectedMediaIndex,
@@ -781,7 +798,78 @@ const MainCanvas = ({
     return window.selectedDuration || 5000;
   };
 
-  const exportCanvasAsVideo = async (format = "video") => {
+  const blobToDataUrl = (blob) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+  const getStoredUserProfile = () => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const storedProfile = window.localStorage.getItem("userProfile");
+      return storedProfile ? JSON.parse(storedProfile) : null;
+    } catch (error) {
+      console.error("Unable to read stored user profile:", error);
+      return null;
+    }
+  };
+
+  const uploadToPublicGallery = async (mediaType, mediaDataUrl) => {
+    if (!mediaDataUrl) {
+      console.warn("No media data provided for gallery upload; skipping.");
+      return;
+    }
+
+    const profile = getStoredUserProfile();
+    if (!profile?.name || !profile?.email) {
+      console.warn("Missing user profile information; skipping gallery upload.");
+      return;
+    }
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    if (!apiBaseUrl) {
+      console.warn("VITE_API_BASE_URL is not configured; skipping gallery upload.");
+      return;
+    }
+
+    const payload = {
+      user_name: profile.name,
+      user_email: profile.email,
+      user_image: profile.imagePreview || null,
+      media_type: mediaType,
+      media_url: mediaDataUrl,
+      timestamp: Date.now(),
+    };
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/public-gallery`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          errorText || `Gallery API responded with status ${response.status}`
+        );
+      }
+
+      console.log("Media added to public gallery successfully.");
+    } catch (error) {
+      console.error("Failed to upload media to public gallery:", error);
+    }
+  };
+
+  const exportCanvasAsVideo = async (format = "video", exportOptions = {}) => {
     const stage = stageRef.current;
     if (!stage) {
       console.error("Stage not available");
@@ -791,77 +879,124 @@ const MainCanvas = ({
     const isGif = format === "gif";
     const exportFps = isGif ? 15 : 30;
     const formatLabel = isGif ? "GIF" : "Video";
+    const mediaTypeForGallery = isGif ? "gif" : "video";
 
     setExportFormat(format);
     setExportLoading(true);
 
     try {
+      const resolveBackgroundColor = () => {
+        if (typeof window === "undefined") {
+          return "#121018";
+        }
+
+        const stageContainer = stageRef.current
+          ?.getStage?.()
+          ?.container?.();
+        const backgroundHost =
+          stageContainer?.parentElement || canvasRef.current;
+
+        if (!backgroundHost) {
+          return "#121018";
+        }
+
+        const computed = window.getComputedStyle(backgroundHost);
+        if (!computed) {
+          return "#121018";
+        }
+
+        const color = computed.backgroundColor;
+        if (
+          color &&
+          color !== "rgba(0, 0, 0, 0)" &&
+          color !== "transparent"
+        ) {
+          return color;
+        }
+
+        return "#121018";
+      };
+
+      const backgroundColor = resolveBackgroundColor();
+      const backgroundPreview = createSolidColorDataUrl(backgroundColor);
+      const backgroundImagePayload = {
+        id: "canvas-background",
+        color: backgroundColor,
+        media: {
+          name: "canvas-background.png",
+          type: "image/png",
+          preview: backgroundPreview,
+          size: estimateSizeFromDataURL(backgroundPreview),
+        },
+        position: {
+          x: 0,
+          y: 0,
+        },
+        dimensions: {
+          width: canvasSize.width,
+          height: canvasSize.height,
+        },
+        rotation: 0,
+      };
+
       const exportData = {
         canvasSize: {
           width: canvasSize.width,
           height: canvasSize.height,
         },
-        backgroundImage: konvaImages[0]
-          ? {
-              id: konvaImages[0].id,
-              media: {
-                name: konvaImages[0].media?.name || "background",
-                type: konvaImages[0].media?.type || "image/jpeg",
-                preview: konvaImages[0].media?.preview,
-                size: konvaImages[0].media?.size || 0,
-              },
-              position: {
-                x: konvaImages[0].x || 0,
-                y: konvaImages[0].y || 0,
-              },
-              dimensions: {
-                width: konvaImages[0].width,
-                height: konvaImages[0].height,
-              },
-              rotation: konvaImages[0].rotation || 0,
-            }
-          : null,
-        overlayImages: konvaImages.slice(1).map((img, index) => {
-          const draggedImg = draggedImages.find(
-            (d) => d.originalIndex === img.id
-          );
-          let pos = { x: img.x, y: img.y };
-          try {
-            const stage = stageRef.current;
-            const layer = stage?.getLayers()[1];
-            const node = layer?.findOne(`#image-${img.id}`);
-            if (node) pos = getAbsXY(node);
-          } catch (_) {}
+        backgroundImage: backgroundImagePayload,
+        overlayImages: konvaImages
+          .map((img, index) => {
+            if (!img) return null;
 
-          return {
-            id: img.id,
-            originalIndex: img.id,
-            layerIndex: index + 1, // Layer order
-            media: {
-              name: img.media?.name || `image-${img.id}`,
-              type: img.media?.type || "image/jpeg",
-              preview: img.media?.preview,
-              size: img.media?.size || 0,
-            },
-            position: pos,
-            dimensions: {
-              width: img.width,
-              height: img.height,
-            },
-            rotation: img.rotation || 0,
-            transform: {
-              scaleX: 1,
-              scaleY: 1,
-            },
-            zoom: imageZoomLevels[img.id] || {
-              scale: 1,
-              offsetX: 0,
-              offsetY: 0,
-            },
-            appliedEffect: draggedImg?.appliedEffect || null,
-            locked: img.locked || false,
-          };
-        }),
+            const imageId =
+              img.id !== undefined && img.id !== null ? img.id : index;
+
+            const draggedImg = draggedImages.find(
+              (d) => d.originalIndex === imageId
+            );
+
+            let pos = {
+              x: typeof img.x === "number" ? img.x : 0,
+              y: typeof img.y === "number" ? img.y : 0,
+            };
+
+            try {
+              const editableLayer = stage.getLayers?.()[1];
+              const node = editableLayer?.findOne?.(`#image-${imageId}`);
+              if (node) pos = getAbsXY(node);
+            } catch (_) {}
+
+            return {
+              id: imageId,
+              originalIndex: imageId,
+              layerIndex: index, // Draw order follows konvaImages
+              media: {
+                name: img.media?.name || `image-${imageId}`,
+                type: img.media?.type || "image/jpeg",
+                preview: img.media?.preview,
+                size: img.media?.size || 0,
+              },
+              position: pos,
+              dimensions: {
+                width: img.width,
+                height: img.height,
+              },
+              rotation: img.rotation || 0,
+              transform: {
+                scaleX: 1,
+                scaleY: 1,
+              },
+              zoom: imageZoomLevels[imageId] || {
+                scale: 1,
+                offsetX: 0,
+                offsetY: 0,
+              },
+              appliedEffect: draggedImg?.appliedEffect || null,
+              locked: img.locked || false,
+            };
+          })
+          .filter(Boolean),
         canvasEffects: canvasEffects.map((effect) => ({
           id: effect.id,
           gifUrl: effect.gifUrl,
@@ -1123,6 +1258,12 @@ const MainCanvas = ({
             `${formatLabel} generation started! You will receive the download link when processing is complete.`
           );
         }
+
+        if (exportOptions.includeInGallery) {
+          console.warn(
+            `${formatLabel} export is being processed asynchronously; gallery upload will be skipped.`
+          );
+        }
       } else {
         // Handle direct media download
         const mediaBlob = await response.blob();
@@ -1152,6 +1293,18 @@ const MainCanvas = ({
             " Note: Some effects could not be included due to technical limitations.";
         }
         alert(successMessage);
+
+        if (exportOptions.includeInGallery) {
+          try {
+            const mediaDataUrl = await blobToDataUrl(mediaBlob);
+            await uploadToPublicGallery(mediaTypeForGallery, mediaDataUrl);
+          } catch (galleryError) {
+            console.error(
+              "Failed to upload exported media to gallery:",
+              galleryError
+            );
+          }
+        }
       }
     } catch (error) {
       console.error(`Error exporting ${format.toLowerCase()}:`, error);
@@ -1180,9 +1333,10 @@ const MainCanvas = ({
     }
   };
 
-  const exportCanvasAsGif = () => exportCanvasAsVideo("gif");
+  const exportCanvasAsGif = (exportOptions = {}) =>
+    exportCanvasAsVideo("gif", exportOptions);
 
-  const exportCanvasAsImage = async () => {
+  const exportCanvasAsImage = async (exportOptions = {}) => {
     const stage = stageRef.current;
     if (!stage) return;
 
@@ -1312,6 +1466,17 @@ const MainCanvas = ({
       link.click();
       document.body.removeChild(link);
 
+      if (exportOptions.includeInGallery) {
+        try {
+          await uploadToPublicGallery("image", finalDataURL);
+        } catch (galleryError) {
+          console.error(
+            "Failed to upload exported image to gallery:",
+            galleryError
+          );
+        }
+      }
+
       // Restore transformer
       if (transformer && wasVisible) {
         transformer.visible(true);
@@ -1333,22 +1498,33 @@ const MainCanvas = ({
   const exportImageRef = useRef();
 
   useEffect(() => {
-    exportVideoRef.current = exportCanvasAsVideo;
+    exportVideoRef.current = (options = {}) =>
+      exportCanvasAsVideo("video", options);
     exportGifRef.current = exportCanvasAsGif;
     exportImageRef.current = exportCanvasAsImage;
   }, [exportCanvasAsVideo, exportCanvasAsGif, exportCanvasAsImage]);
 
   useEffect(() => {
     const handleExportEvent = (e) => {
-      if (e.detail?.format === "video" && !e.detail?.processed) {
+      if (!e.detail || e.detail.processed) {
+        return;
+      }
+
+      const { format, includeInGallery, settings } = e.detail;
+      const exportOptions = {
+        includeInGallery: Boolean(includeInGallery),
+        settings: settings || {},
+      };
+
+      if (format === "video") {
         e.detail.processed = true;
-        exportVideoRef.current?.();
-      } else if (e.detail?.format === "gif" && !e.detail?.processed) {
+        exportVideoRef.current?.(exportOptions);
+      } else if (format === "gif") {
         e.detail.processed = true;
-        exportGifRef.current?.();
-      } else if (e.detail?.format === "image" && !e.detail?.processed) {
+        exportGifRef.current?.(exportOptions);
+      } else if (format === "image") {
         e.detail.processed = true;
-        exportImageRef.current?.();
+        exportImageRef.current?.(exportOptions);
       }
     };
 

@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const Topbar = () => {
   const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const filterTags = ["Discovery", "Abstract", "Sci-fi", "Abstract"];
+  const [activeTab, setActiveTab] = useState("Images");
+  const filterTabs = ["Images", "GIFs", "Videos"];
 
   // Animation variants
   const containerVariants = {
@@ -64,11 +65,11 @@ const Topbar = () => {
   };
 
   const searchBarVariants = {
-    hidden: { 
-      opacity: 0, 
-      height: 0, 
+    hidden: {
+      opacity: 0,
+      height: 0,
       y: -10,
-      scale: 0.95
+      scale: 0.95,
     },
     visible: {
       opacity: 1,
@@ -83,7 +84,7 @@ const Topbar = () => {
   };
 
   return (
-    <motion.nav 
+    <motion.nav
       className="bg-darkbg border-gray-800 px-4 sm:px-6 py-3 sm:py-4 mt-8"
       variants={containerVariants}
       initial="hidden"
@@ -91,17 +92,18 @@ const Topbar = () => {
     >
       <div className="flex items-center justify-between max-w-[92rem] mx-auto">
         {/* Filter Tags - Desktop */}
-        <motion.div 
+        <motion.div
           className="hidden lg:flex items-center gap-3"
           variants={containerVariants}
         >
-          {filterTags.map((tag, index) => (
+          {filterTabs.map((tag, index) => (
             <motion.button
               key={index}
+              onClick={() => setActiveTab(tag)}
               className={
-                index === 0
-                  ? "px-5 py-3 bg-[#8088E2] hover:bg-[#8088E2] text-white text-sm rounded-full transition-colors"
-                  : "px-5 py-3 bg-darkbg border-2 border-[#8088E2] text-white text-sm rounded-full transition-colors hover:bg-[#8088E2] hover:text-black"
+                activeTab === tag
+                  ? "px-5 py-3 bg-[#8088E2] text-white text-sm rounded-full transition-colors"
+                  : "px-5 py-3 bg-darkbg border-2 border-[#8088E2] text-white text-sm rounded-full transition-colors hover:bg-[#8088E2]"
               }
               variants={tagVariants}
               whileHover="hover"
@@ -111,7 +113,7 @@ const Topbar = () => {
               {tag}
             </motion.button>
           ))}
-          <motion.button 
+          <motion.button
             className="w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center transition-colors"
             variants={buttonVariants}
             whileHover="hover"
@@ -122,17 +124,18 @@ const Topbar = () => {
         </motion.div>
 
         {/* Filter Tags - Mobile */}
-        <motion.div 
+        <motion.div
           className="lg:hidden flex items-center gap-2 overflow-x-auto scrollbar-hide"
           variants={containerVariants}
         >
-          {filterTags.map((tag, index) => (
+          {filterTabs.map((tag, index) => (
             <motion.button
               key={index}
+              onClick={() => setActiveTab(tag)}
               className={
-                index === 0
-                  ? "px-3 sm:px-4 py-2 bg-[#8088E2] hover:bg-[#8088E2] text-white text-xs sm:text-sm rounded-full transition-colors whitespace-nowrap"
-                  : "px-3 sm:px-4 py-2 bg-darkbg border-2 border-[#8088E2] text-white text-xs sm:text-sm rounded-full transition-colors hover:bg-[#8088E2] hover:text-black whitespace-nowrap"
+                activeTab === tag
+                  ? "px-3 sm:px-4 py-2 bg-[#8088E2] text-white text-xs sm:text-sm rounded-full transition-colors whitespace-nowrap"
+                  : "px-3 sm:px-4 py-2 bg-darkbg border-2 border-[#8088E2] text-white text-xs sm:text-sm rounded-full transition-colors hover:bg-[#8088E2] whitespace-nowrap"
               }
               variants={tagVariants}
               whileHover="hover"
@@ -142,7 +145,7 @@ const Topbar = () => {
               {tag}
             </motion.button>
           ))}
-          <motion.button 
+          <motion.button
             className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
             variants={buttonVariants}
             whileHover="hover"
@@ -153,7 +156,7 @@ const Topbar = () => {
         </motion.div>
 
         {/* Search Bar - Desktop */}
-        <motion.div 
+        <motion.div
           className="hidden md:block relative"
           variants={searchVariants}
         >
@@ -165,13 +168,13 @@ const Topbar = () => {
             whileFocus={{
               scale: 1.02,
               borderColor: "#8088e2",
-              transition: { duration: 0.2 }
+              transition: { duration: 0.2 },
             }}
           />
         </motion.div>
 
         {/* Search Button - Mobile */}
-        <motion.button 
+        <motion.button
           className="md:hidden w-8 h-8 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center transition-colors"
           onClick={() => setIsSearchVisible(!isSearchVisible)}
           variants={buttonVariants}
@@ -185,7 +188,7 @@ const Topbar = () => {
       {/* Mobile Search Bar */}
       <AnimatePresence>
         {isSearchVisible && (
-          <motion.div 
+          <motion.div
             className="md:hidden mt-3 relative"
             variants={searchBarVariants}
             initial="hidden"
@@ -201,7 +204,7 @@ const Topbar = () => {
               whileFocus={{
                 scale: 1.02,
                 borderColor: "#8088e2",
-                transition: { duration: 0.2 }
+                transition: { duration: 0.2 },
               }}
             />
           </motion.div>
