@@ -1417,6 +1417,19 @@ const MainCanvas = ({
     const stage = stageRef.current;
     if (!stage) return;
 
+    const rawSettings =
+      exportOptions && typeof exportOptions.settings === "object"
+        ? exportOptions.settings
+        : {};
+    const aspectRatioSelection =
+      typeof rawSettings.aspectRatio === "string"
+        ? rawSettings.aspectRatio
+        : "original";
+    const resolutionSelection =
+      typeof rawSettings.resolution === "string"
+        ? rawSettings.resolution.toLowerCase()
+        : "high";
+
     const transformer = transformerRef.current;
     const wasVisible = transformer && transformer.visible();
     if (transformer) {
@@ -1534,8 +1547,71 @@ const MainCanvas = ({
       // Wait for all overlays
       await Promise.all(allOverlayPromises);
 
+      const tempWidth = tempCanvas.width;
+      const tempHeight = tempCanvas.height;
+
+      const parseAspectRatio = (value) => {
+        if (value === "original") return null;
+        if (typeof value !== "string") return null;
+        const parts = value.split(":").map((part) => parseFloat(part.trim()));
+        if (parts.length !== 2) return null;
+        const [w, h] = parts;
+        if (!w || !h || Number.isNaN(w) || Number.isNaN(h)) return null;
+        return { w, h, ratio: w / h };
+      };
+
+      const desiredAspect = parseAspectRatio(aspectRatioSelection);
+
+      let cropX = 0;
+      let cropY = 0;
+      let cropWidth = tempWidth;
+      let cropHeight = tempHeight;
+
+      if (desiredAspect) {
+        const currentRatio = tempWidth / tempHeight;
+        const { ratio } = desiredAspect;
+
+        if (ratio > currentRatio) {
+          cropWidth = tempWidth;
+          cropHeight = Math.round(tempWidth / ratio);
+          cropY = Math.max(0, Math.round((tempHeight - cropHeight) / 2));
+        } else {
+          cropHeight = tempHeight;
+          cropWidth = Math.round(tempHeight * ratio);
+          cropX = Math.max(0, Math.round((tempWidth - cropWidth) / 2));
+        }
+      }
+
+      const resolutionScaleMap = {
+        low: 0.5,
+        medium: 0.75,
+        high: 1,
+      };
+      const scale =
+        resolutionScaleMap[resolutionSelection] ?? resolutionScaleMap.high;
+
+      const targetWidth = Math.max(1, Math.round(cropWidth * scale));
+      const targetHeight = Math.max(1, Math.round(cropHeight * scale));
+
+      const outputCanvas = document.createElement("canvas");
+      outputCanvas.width = targetWidth;
+      outputCanvas.height = targetHeight;
+      const outputCtx = outputCanvas.getContext("2d");
+
+      outputCtx.drawImage(
+        tempCanvas,
+        cropX,
+        cropY,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        targetWidth,
+        targetHeight
+      );
+
       // Final export
-      const finalDataURL = tempCanvas.toDataURL("image/png");
+      const finalDataURL = outputCanvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = "cinemaglow-picture-with-overlays.png";
       link.href = finalDataURL;
