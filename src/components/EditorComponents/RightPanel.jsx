@@ -624,13 +624,10 @@ const RightPanel = ({ isMobile = false, onEffectSelect, onExport, selectedMediaI
           className="w-full bg-[#8088e2] text-white py-2.5 px-4 rounded-sm font-medium hover:bg-[#6b73d1] transition-all duration-200"
           onClick={() => {
             if (!onExport) return;
-            const exportSettings =
-              selectedFormat === "image"
-                ? {
-                    aspectRatio: selectedAspectRatio,
-                    resolution: selectedResolution,
-                  }
-                : undefined;
+            const exportSettings = {
+              aspectRatio: selectedAspectRatio,
+              resolution: selectedResolution,
+            };
             onExport(selectedFormat, exportSettings, includeInGallery);
           }}
         >

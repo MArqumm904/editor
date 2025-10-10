@@ -924,6 +924,19 @@ const MainCanvas = ({
       return;
     }
 
+    const rawSettings =
+      exportOptions && typeof exportOptions.settings === "object"
+        ? exportOptions.settings
+        : {};
+    const aspectRatioSelection =
+      typeof rawSettings.aspectRatio === "string"
+        ? rawSettings.aspectRatio
+        : "original";
+    const resolutionSelection =
+      typeof rawSettings.resolution === "string"
+        ? rawSettings.resolution.toLowerCase()
+        : "high";
+
     const isGif = format === "gif";
     const exportFps = isGif ? 15 : 30;
     const formatLabel = isGif ? "GIF" : "Video";
@@ -1141,6 +1154,8 @@ const MainCanvas = ({
           fps: exportFps,
           quality: "high",
           timestamp: new Date().toISOString(),
+          aspectRatio: aspectRatioSelection,
+          resolution: resolutionSelection,
         },
         metadata: {
           totalImages: konvaImages.length,
