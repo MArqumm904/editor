@@ -9,6 +9,22 @@ const Editor = () => {
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(null);
   const [activeMobilePanel, setActiveMobilePanel] = useState('media');
 
+  const handleMediaPreviewUpdate = (mediaId, payload = {}) => {
+    if (mediaId === undefined || mediaId === null) return;
+    setUploadedMedia((prev) =>
+      prev.map((item) =>
+        item.id === mediaId
+          ? {
+              ...item,
+              preview:
+                payload.preview !== undefined ? payload.preview : item.preview,
+              type: payload.type || item.type,
+            }
+          : item
+      )
+    );
+  };
+
   const handleMediaUpload = (files) => {
     const newMediaFiles = files.map((file, index) => ({
       file,
@@ -65,6 +81,7 @@ const Editor = () => {
           selectedMediaIndex={selectedMediaIndex}
           setSelectedMediaIndex={setSelectedMediaIndex}
           onMediaReorder={handleMediaReorder}
+          onUpdateMediaPreview={handleMediaPreviewUpdate}
         />
       </div>
 
@@ -98,6 +115,7 @@ const Editor = () => {
               setSelectedMediaIndex={setSelectedMediaIndex}
               onMediaReorder={handleMediaReorder}
               isMobile={true}
+              onUpdateMediaPreview={handleMediaPreviewUpdate}
             />
           )}
         </div>

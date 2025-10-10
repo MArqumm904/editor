@@ -48,6 +48,7 @@ const MainCanvas = ({
   isMobile = false,
   onRemoveMedia,
   onImageEffectChange,
+  onUpdateMediaPreview,
   animationOverlays = [],
   onAnimationOverlayRemove,
   onAnimationOverlayAdd,
@@ -271,33 +272,80 @@ const MainCanvas = ({
 
     const canvas = eraserCanvasRef.current;
     const dataUrl = canvas.toDataURL("image/png");
+    const targetId = eraserMode.targetId;
+    const normalizedTargetId = String(targetId);
+
+    const existingImage = konvaImages.find((img, idx) => {
+      const candidateId =
+        img?.id !== undefined && img?.id !== null ? img.id : idx;
+      return String(candidateId) === normalizedTargetId;
+    });
+
+    const associatedMediaId = existingImage?.media?.id;
 
     const newImg = new window.Image();
     newImg.onload = () => {
-      // Update konvaImages with erased version
+      // Update konvaImages with erased version + baked preview
       setKonvaImages((prev) =>
-        prev.map((img, idx) =>
-          img.id === eraserMode.targetId || idx === eraserMode.targetId
-            ? { ...img, konvaImg: newImg }
-            : img
-        )
+        prev.map((img, idx) => {
+          const candidateId =
+            img?.id !== undefined && img?.id !== null ? img.id : idx;
+
+          if (String(candidateId) !== normalizedTargetId) {
+            return img;
+          }
+
+          const updatedMedia = {
+            ...(img.media || {}),
+            preview: dataUrl,
+            type: "image/png",
+          };
+
+          if (!updatedMedia.name) {
+            updatedMedia.name = `image-${candidateId}.png`;
+          }
+
+          return {
+            ...img,
+            konvaImg: newImg,
+            media: updatedMedia,
+          };
+        })
       );
 
       setDraggedImages((prev) =>
-        prev.map((img) =>
-          img.originalIndex === eraserMode.targetId
-            ? { ...img, preview: newImg.src }
-            : img
-        )
+        prev.map((img) => {
+          const candidateId =
+            img?.originalIndex !== undefined && img?.originalIndex !== null
+              ? img.originalIndex
+              : img?.id;
+
+          if (String(candidateId) !== normalizedTargetId) {
+            return img;
+          }
+
+          return { ...img, preview: dataUrl };
+        })
       );
 
-      // **YEH ADD KARO** - Force layer redraw
+      if (
+        associatedMediaId !== undefined &&
+        associatedMediaId !== null &&
+        typeof onUpdateMediaPreview === "function"
+      ) {
+        onUpdateMediaPreview(associatedMediaId, {
+          preview: dataUrl,
+          type: "image/png",
+        });
+      }
+
+      // Force layer redraw so Konva picks up the new texture
       setTimeout(() => {
         const stage = stageRef.current;
         if (stage) {
           const layer = stage.getLayers()[1]; // editable layer
           if (layer) {
-            layer.batchDraw(); // Force redraw with new image
+            layer.batchDraw();
           }
         }
       }, 100);
@@ -305,7 +353,7 @@ const MainCanvas = ({
       exitEraserMode();
     };
     newImg.src = dataUrl;
-  }, [eraserMode, exitEraserMode]);
+  }, [eraserMode, exitEraserMode, konvaImages, onUpdateMediaPreview]);
 
   const startErasing = useCallback(
     (e) => {
@@ -967,15 +1015,44 @@ const MainCanvas = ({
               if (node) pos = getAbsXY(node);
             } catch (_) {}
 
+            const previewSource =
+              img.media?.preview ||
+              img.konvaImg?.src ||
+              draggedImg?.preview ||
+              null;
+
+            if (!previewSource) {
+              console.warn(
+                "Skipping overlay export because preview is missing",
+                imageId,
+                img
+              );
+              return null;
+            }
+
+            let mediaType = img.media?.type;
+            if (!mediaType && previewSource?.startsWith("data:")) {
+              const typeMatch = previewSource.slice(5).split(";")[0];
+              if (typeMatch) {
+                mediaType = typeMatch;
+              }
+            }
+
+            const inferredSize =
+              img.media?.size ||
+              (previewSource?.startsWith("data:")
+                ? estimateSizeFromDataURL(previewSource)
+                : 0);
+
             return {
               id: imageId,
               originalIndex: imageId,
               layerIndex: index, // Draw order follows konvaImages
               media: {
                 name: img.media?.name || `image-${imageId}`,
-                type: img.media?.type || "image/jpeg",
-                preview: img.media?.preview,
-                size: img.media?.size || 0,
+                type: mediaType || "image/png",
+                preview: previewSource,
+                size: inferredSize,
               },
               position: pos,
               dimensions: {

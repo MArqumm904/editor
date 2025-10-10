@@ -36,6 +36,22 @@ const Create = () => {
   const [activeTab, setActiveTab] = useState("Upload");
   const [animationOverlays, setAnimationOverlays] = useState([]);
 
+  const handleMediaPreviewUpdate = useCallback((mediaId, payload = {}) => {
+    if (mediaId === undefined || mediaId === null) return;
+    setUploadedMedia((prev) =>
+      prev.map((media) =>
+        media.id === mediaId
+          ? {
+              ...media,
+              preview:
+                payload.preview !== undefined ? payload.preview : media.preview,
+              type: payload.type || media.type,
+            }
+          : media
+      )
+    );
+  }, []);
+
   // Welcome Form Handlers
   const handleImageUploadWelcome = (e) => {
     const file = e.target.files[0];
@@ -381,6 +397,7 @@ const Create = () => {
           activeEffect={activeEffect}
           onRemoveMedia={handleRemoveMedia}
           onImageEffectChange={handleImageEffectChange}
+          onUpdateMediaPreview={handleMediaPreviewUpdate}
           animationOverlays={animationOverlays}
           onAnimationOverlayRemove={handleAnimationOverlayRemove}
           onAnimationOverlayAdd={(overlay) =>
@@ -447,6 +464,7 @@ const Create = () => {
                 isMobile={true}
                 onRemoveMedia={handleRemoveMedia}
                 onImageEffectChange={handleImageEffectChange}
+                onUpdateMediaPreview={handleMediaPreviewUpdate}
                 animationOverlays={animationOverlays}
                 onAnimationOverlayRemove={handleAnimationOverlayRemove}
               />
